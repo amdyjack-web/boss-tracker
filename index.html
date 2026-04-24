@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>BOSS 狩獵管理</title>
+    <style>
+        :root {
+            --bg: #0f172a; --card: #1e293b; --text: #f8fafc;
+            --accent: #10b981; --warning: #fbbf24; --info: #38bdf8; --fixed: #f472b6; --danger: #ef4444; --event: #8b5cf6; --gray: #64748b;
+        }
+        body { background: var(--bg); color: var(--text); font-family: sans-serif; padding: 20px; font-size: 14px; }
+        .container { max-width: 1100px; margin: 0 auto; background: var(--card); border-radius: 12px; padding: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .section-title { font-size: 18px; font-weight: bold; padding: 10px; border-left: 4px solid var(--accent); margin: 20px 0 10px; background: rgba(255,255,255,0.05); }
+        .event-title { border-left-color: var(--event); color: var(--event); }
+        
+        .grid-header { display: grid; grid-template-columns: 2fr 1.2fr 1.8fr 2.5fr; padding: 10px 15px; color: var(--gray); font-weight: bold; border-bottom: 2px solid #334155; }
+        .boss-row { display: grid; grid-template-columns: 2fr 1.2fr 1.8fr 2.5fr; padding: 12px 15px; border-bottom: 1px solid #334155; align-items: center; transition: 0.2s; }
+        .boss-row:hover { background: rgba(255,255,255,0.03); }
+        
+        .boss-name { font-weight: bold; color: var(--info); }
+        .countdown { font-family: monospace; font-weight: bold; font-size: 16px; }
+        .status-ready { color: var(--warning); }
+        .status-wait { color: var(--accent); }
+        
+        .btn-group { display: flex; gap: 5px; }
+        button { 
+            flex: 1; background: transparent; border: 1px solid var(--accent); color: var(--accent); 
+            padding: 6px 2px; border-radius: 4px; cursor: pointer; font-size: 12px; white-space: nowrap; transition: 0.2s;
+        }
+        button:hover { background: var(--accent); color: white; }
+        button.skip-btn { border-color: var(--danger); color: var(--danger); }
+        button.skip-btn:hover { background: var(--danger); color: white; }
+        button.fix-btn { border-color: var(--gray); color: var(--gray); }
+        button.fix-btn:hover { background: var(--gray); color: white; }
+
+        .fixed-row { grid-template-columns: 2fr 3fr 1.2fr; }
+        #event-section { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div style="text-align: center; color: var(--gray); margin-bottom: 20px;">BOSS 狩獵管理</div>
+
+    <div id="event-section">
+        <div class="section-title event-title">🔥 限時活動 (至 5/6 止)</div>
+        <div class="grid-header">
+            <div>活動首領</div><div>預計重生</div><div>倒數計時</div><div>操作</div>
+        </div>
+        <div id="event-boss-list"></div>
+    </div>
+    
+    <div class="section-title">野外首領 (週期重生)</div>
+    <div class="grid-header">
+        <div>首領名稱</div><div>預計重生</div><div>倒數計時</div><div>操作</div>
+    </div>
+    <div id="wild-boss-list"></div>
+
+    <div class="section-title">固定首領 (定點重生)</div>
+    <div class="grid-header fixed-row">
+        <div>首領名稱</div><div>重生時間點</div><div>備註</div>
+    </div>
+    <div id="fixed-boss-list"></div>
+</div>
+
+<script>
+const EVENT_END_DATE = new Date("2026-05-06T00:05:00").getTime();
+
+const wildConfig = [
+    { name: "浮士德", cycle: 60 }, { name: "伊弗利特", cycle: 120 }, { name: "大腳瑪幽", cycle: 180 },
+    { name: "綠王", cycle: 120 }, { name: "紅王", cycle: 120 }, { name: "巨型蠕蟲", cycle: 120 },
+    { name: "四色", cycle: 120 }, { name: "86飛龍", cycle: 120 }, { name: "83飛龍", cycle: 180 },
+    { name: "85飛龍", cycle: 180 }, { name: "大黑長者", cycle: 180 }, { name: "巨大鱷魚", cycle: 180 },
+    { name: "強盜頭目", cycle: 180 }, { name: "樹精", cycle: 180 }, { name: "曼波兔王", cycle: 180 },
+    { name: "守護螞蟻", cycle: 180 }, { name: "賽尼斯分身", cycle: 180 }, { name: "死亡騎士", cycle: 240 },
+    { name: "蜘蛛", cycle: 240 }, { name: "奈克諾斯", cycle: 240 }, { name: "巨大飛龍", cycle: 360 },
+    { name: "惡魔監視者", cycle: 360 }, { name: "貝里斯", cycle: 360 }, { name: "烏勒庫斯", cycle: 360 },
+    { name: "卡司特", cycle: 450 }, { name: "變形怪首領", cycle: 420 }, { name: "不死鳥", cycle: 480 },
+    { name: "力卡溫", cycle: 480 }, { name: "古代巨人", cycle: 510 }, { name: "克特", cycle: 600 }
+];
+
+const eventConfig = [
+    { name: "【活動】死亡騎士", cycle: 120, id: "event_dk" }
+];
+
+const fixedConfig = [
+    { name: "奇岩地監 1F", times: ["06:00", "12:00", "18:00", "00:00"] },
+    { name: "奇岩地監 2F", times: ["07:00", "14:00", "21:00"] },
+    { name: "魔法師", times: ["01:00", "03:00", "05:00", "07:00", "09:00", "11:00", "13:00", "15:00", "17:00", "19:00", "21:00", "23:00"], note: "單數整點" },
+    { name: "巴風特", times: ["14:00", "20:00"] },
+    { name: "三王 (13/28/19)", times: ["19:15"] },
+    { name: "象塔 8F 惡魔 / 異界炎魔", times: ["22:00"] },
+    { name: "黑暗地監 4F", times: ["00:00"] }
+];
+
+let bossData = JSON.parse(localStorage.getItem('lineage_master_data')) || wildConfig.map((b, i) => ({ ...b, id: i.toString(), nextSpawn: 0 }));
+let eventData = JSON.parse(localStorage.getItem('lineage_event_data')) || eventConfig.map(b => ({ ...b, nextSpawn: 0 }));
+
+function saveAll() {
+    localStorage.setItem('lineage_master_data', JSON.stringify(bossData));
+    localStorage.setItem('lineage_event_data', JSON.stringify(eventData));
+}
+
+function handleAction(type, id, isEvent = false) {
+    let list = isEvent ? eventData : bossData;
+    let boss = list.find(b => b.id === id);
+    const now = new Date().getTime();
+
+    if (type === 'kill') {
+        boss.nextSpawn = now + (boss.cycle * 60 * 1000);
+    } else if (type === 'skip') {
+        if (boss.nextSpawn === 0 || boss.nextSpawn < (now - 86400000)) { 
+            boss.nextSpawn = now + (boss.cycle * 60 * 1000);
+        } else {
+            boss.nextSpawn = boss.nextSpawn + (boss.cycle * 60 * 1000);
+        }
+    } else if (type === 'fix') {
+        // 修正功能：回退一個週期
+        if (boss.nextSpawn !== 0) {
+            boss.nextSpawn = boss.nextSpawn - (boss.cycle * 60 * 1000);
+        }
+    }
+    saveAll();
+    render();
+}
+
+function renderBossRow(boss, isEvent = false) {
+    const now = new Date().getTime();
+    let diff = boss.nextSpawn - now;
+    let isOver = diff < 0;
+    let absDiff = Math.abs(diff);
+    const h = Math.floor(absDiff / 3600000).toString().padStart(2, '0');
+    const m = Math.floor((absDiff % 3600000) / 60000).toString().padStart(2, '0');
+    const s = Math.floor((absDiff % 60000) / 1000).toString().padStart(2, '0');
+    
+    return `
+        <div class="boss-row">
+            <div class="boss-name">${boss.name} <span style="font-size:10px; color:var(--gray);">(${boss.cycle/60}H)</span></div>
+            <div class="next-time">${boss.nextSpawn === 0 ? '---' : new Date(boss.nextSpawn).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+            <div class="countdown ${isOver ? 'status-ready' : 'status-wait'}">${boss.nextSpawn === 0 ? '--:--:--' : (isOver ? '已超過 ' : '') + h + ':' + m + ':' + s}</div>
+            <div class="btn-group">
+                <button onclick="handleAction('kill', '${boss.id}', ${isEvent})">擊殺</button>
+                <button class="skip-btn" onclick="handleAction('skip', '${boss.id}', ${isEvent})">輪空</button>
+                <button class="fix-btn" onclick="handleAction('fix', '${boss.id}', ${isEvent})" title="按錯時回退一週期">修正</button>
+            </div>
+        </div>
+    `;
+}
+
+function render() {
+    const now = new Date().getTime();
+    const eventSection = document.getElementById('event-section');
+    if (now < EVENT_END_DATE) {
+        eventSection.style.display = 'block';
+        document.getElementById('event-boss-list').innerHTML = eventData.map(b => renderBossRow(b, true)).join('');
+    } else {
+        eventSection.style.display = 'none';
+    }
+    document.getElementById('wild-boss-list').innerHTML = bossData.map(b => renderBossRow(b, false)).join('');
+    document.getElementById('fixed-boss-list').innerHTML = fixedConfig.map(f => `
+        <div class="boss-row fixed-row">
+            <div class="boss-name" style="color:var(--fixed)">${f.name}</div>
+            <div class="next-time">${f.times.join(' / ')}</div>
+            <div style="color:var(--gray); font-size:12px;">${f.note || '-'}</div>
+        </div>
+    `).join('');
+}
+
+setInterval(render, 1000);
+render();
+</script>
+</body>
+</html>
