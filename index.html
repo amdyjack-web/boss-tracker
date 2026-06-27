@@ -2,7 +2,9 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>BOSS 狩獵管理</title>
+    <title>BOSS 狩獵管理平台 - 雲端即時同步版</title>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
         :root {
             --bg: #0f172a; --card: #1e293b; --text: #f8fafc;
@@ -35,7 +37,6 @@
         button.back-btn { border-color: #fb923c; color: #fb923c; }
         button.back-btn:hover { background: #fb923c; color: white; }
 
-        /* 固定王時間按鈕樣式 */
         button.time-btn { flex: none; border-color: var(--fixed); color: var(--fixed); min-width: 65px; margin-bottom: 2px; }
         button.time-btn.done { border-color: var(--gray); color: var(--gray); background: rgba(255,255,255,0.1); }
         
@@ -45,7 +46,9 @@
 <body>
 
 <div class="container">
-    <div style="text-align: center; color: var(--gray); margin-bottom: 20px;">BOSS 狩獵管理</div>
+    <div style="text-align: center; color: var(--gray); margin-bottom: 20px; font-weight: bold; color: var(--warning); font-size: 16px;">
+        📢 盟友雲端連線版（一人點擊，全體即時同步）
+    </div>
 
     <div id="event-section">
         <div class="section-title event-title">🔥 限時活動 (至 5/6 止)</div>
@@ -69,6 +72,22 @@
 </div>
 
 <script>
+// ⚠️ 已經自動幫你帶入你專屬的 Firebase 金鑰
+const firebaseConfig = {
+    apiKey: "AIzaSyAtoQ0h-0s9hZPOyIswNRgyp36V6iKvha0",
+    authDomain: "boss-d6c8e.firebaseapp.com",
+    databaseURL: "https://boss-d6c8e-default-rtdb.firebaseio.com", // 自動補齊的資料庫網址
+    projectId: "boss-d6c8e",
+    storageBucket: "boss-d6c8e.firebasestorage.app",
+    messagingSenderId: "958955342914",
+    appId: "1:958955342914:web:87ddab42ee59b7904d71db",
+    measurementId: "G-2L2CMM5Y14"
+};
+
+// 初始化 Firebase
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+
 const EVENT_END_DATE = new Date("2026-05-06T00:00:00").getTime();
 
 const wildConfig = [
@@ -96,41 +115,46 @@ const fixedConfig = [
     { name: "黑暗地監 4F", times: ["00:00"] }
 ];
 
-let bossData = JSON.parse(localStorage.getItem('lineage_master_data')) || wildConfig.map((b, i) => ({ ...b, id: i.toString(), nextSpawn: 0 }));
-let eventData = JSON.parse(localStorage.getItem('lineage_event_data')) || eventConfig.map(b => ({ ...b, nextSpawn: 0 }));
+let remoteWildData = {};
+let remoteEventData = {};
+let remoteFixedData = {};
 
-function saveAll() {
-    localStorage.setItem('lineage_master_data', JSON.stringify(bossData));
-    localStorage.setItem('lineage_event_data', JSON.stringify(eventData));
-}
+// 監聽雲端即時更新
+database.ref('wild_bosses').on('value', (snapshot) => { remoteWildData = snapshot.val() || {}; render(); });
+database.ref('event_bosses').on('value', (snapshot) => { remoteEventData = snapshot.val() || {}; render(); });
+database.ref('fixed_bosses').on('value', (snapshot) => { remoteFixedData = snapshot.val() || {}; render(); });
 
-function handleAction(type, id, isEvent = false) {
-    let list = isEvent ? eventData : bossData;
-    let boss = list.find(b => b.id === id);
+function handleAction(type, index, isEvent = false) {
     const now = new Date().getTime();
+    const config = isEvent ? eventConfig[0] : wildConfig[index];
+    const path = isEvent ? 'event_bosses/' + config.id : 'wild_bosses/' + index;
+    
+    let currentNextSpawn = isEvent ? (remoteEventData[config.id] || 0) : (remoteWildData[index] || 0);
 
     if (type === 'kill') {
-        boss.nextSpawn = now + (boss.cycle * 60 * 1000);
+        database.ref(path).set(now + (config.cycle * 60000));
     } else if (type === 'back') {
-        let minAgo = prompt(`[${boss.name}] 是幾分鐘前殺的？`, "5");
-        if (minAgo !== null && !isNaN(minAgo)) boss.nextSpawn = (now - minAgo * 60000) + (boss.cycle * 60 * 1000);
+        let minAgo = prompt(`[${config.name}] 是幾分鐘前殺的？`, "5");
+        if (minAgo !== null && !isNaN(minAgo)) {
+            database.ref(path).set((now - minAgo * 60000) + (config.cycle * 60000));
+        }
     } else if (type === 'skip') {
-        boss.nextSpawn = (boss.nextSpawn === 0 || boss.nextSpawn < (now - 86400000)) ? now + (boss.cycle * 60000) : boss.nextSpawn + (boss.cycle * 60000);
+        let next = (currentNextSpawn === 0 || currentNextSpawn < (now - 86400000)) ? now + (config.cycle * 60000) : currentNextSpawn + (config.cycle * 60000);
+        database.ref(path).set(next);
     } else if (type === 'fix') {
-        if (boss.nextSpawn !== 0) boss.nextSpawn -= (boss.cycle * 60000);
+        if (currentNextSpawn !== 0) database.ref(path).set(currentNextSpawn - (config.cycle * 60000));
     }
-    saveAll(); render();
 }
 
 function toggleFixed(name, time) {
-    let key = `done_${name}_${time}`;
-    localStorage.setItem(key, localStorage.getItem(key) === 'true' ? 'false' : 'true');
-    render();
+    let key = `${name}_${time}`.replace(/[.#$/[\]]/g, "_");
+    let currentState = remoteFixedData[key] === true;
+    database.ref('fixed_bosses/' + key).set(!currentState);
 }
 
-function renderRow(boss, isEvent = false) {
+function renderRow(boss, nextSpawn, onActionClick) {
     const now = new Date().getTime();
-    let diff = boss.nextSpawn - now;
+    let diff = nextSpawn - now;
     let isOver = diff < 0;
     let absDiff = Math.abs(diff);
     const h = Math.floor(absDiff / 3600000).toString().padStart(2, '0');
@@ -140,13 +164,13 @@ function renderRow(boss, isEvent = false) {
     return `
         <div class="boss-row">
             <div class="boss-name">${boss.name} <span style="font-size:10px; color:var(--gray);">(${boss.cycle/60}H)</span></div>
-            <div class="next-time">${boss.nextSpawn === 0 ? '---' : new Date(boss.nextSpawn).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-            <div class="countdown ${isOver ? 'status-ready' : 'status-wait'}">${boss.nextSpawn === 0 ? '--:--:--' : (isOver ? '已超過 ' : '') + h + ':' + m + ':' + s}</div>
+            <div class="next-time">${nextSpawn === 0 ? '---' : new Date(nextSpawn).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+            <div class="countdown ${isOver ? 'status-ready' : 'status-wait'}">${nextSpawn === 0 ? '--:--:--' : (isOver ? '已超過 ' : '') + h + ':' + m + ':' + s}</div>
             <div class="btn-group">
-                <button onclick="handleAction('kill', '${boss.id}', ${isEvent})">擊殺</button>
-                <button class="back-btn" onclick="handleAction('back', '${boss.id}', ${isEvent})">補登</button>
-                <button class="skip-btn" onclick="handleAction('skip', '${boss.id}', ${isEvent})">輪空</button>
-                <button class="fix-btn" onclick="handleAction('fix', '${boss.id}', ${isEvent})">修正</button>
+                <button onclick="${onActionClick}('kill')">擊殺</button>
+                <button class="back-btn" onclick="${onActionClick}('back')">補登</button>
+                <button class="skip-btn" onclick="${onActionClick}('skip')">輪空</button>
+                <button class="fix-btn" onclick="${onActionClick}('fix')">修正</button>
             </div>
         </div>
     `;
@@ -155,32 +179,37 @@ function renderRow(boss, isEvent = false) {
 function render() {
     const now = new Date().getTime();
     const eventSection = document.getElementById('event-section');
+    
     if (now < EVENT_END_DATE) {
         eventSection.style.display = 'block';
-        document.getElementById('event-boss-list').innerHTML = eventData.map(b => renderRow(b, true)).join('');
+        let next = remoteEventData[eventConfig[0].id] || 0;
+        document.getElementById('event-boss-list').innerHTML = renderRow(eventConfig[0], next, `function(type){ handleAction(type, 0, true); }`);
     } else {
         eventSection.style.display = 'none';
     }
-    document.getElementById('wild-boss-list').innerHTML = bossData.map(b => renderRow(b, false)).join('');
+    
+    document.getElementById('wild-boss-list').innerHTML = wildConfig.map((b, i) => {
+        let next = remoteWildData[i] || 0;
+        return renderRow(b, next, `function(type){ handleAction(type, ${i}, false); }`);
+    }).join('');
 
-    // 固定王渲染 (點擊紀錄)
     document.getElementById('fixed-boss-list').innerHTML = fixedConfig.map(f => {
         let timeBtns = f.times.map(t => {
-            let isDone = localStorage.getItem(`done_${f.name}_${t}`) === 'true';
+            let key = `${f.name}_${t}`.replace(/[.#$/[\]]/g, "_");
+            let isDone = remoteFixedData[key] === true;
             return `<button class="time-btn ${isDone ? 'done' : ''}" onclick="toggleFixed('${f.name}', '${t}')">${isDone ? '✓ ' : ''}${t}</button>`;
         }).join(' ');
         return `
             <div class="boss-row" style="grid-template-columns: 2fr 3fr 1.2fr;">
                 <div class="boss-name" style="color:var(--fixed)">${f.name}</div>
                 <div class="btn-group">${timeBtns}</div>
-                <div style="color:var(--gray); font-size:12px;">${f.note || '點擊紀錄'}</div>
+                <div style="color:var(--gray); font-size:12px;">${f.note || '點擊時段紀錄'}</div>
             </div>
         `;
     }).join('');
 }
 
 setInterval(render, 1000);
-render();
 </script>
 </body>
 </html>
