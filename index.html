@@ -47,7 +47,7 @@
 
 <div class="container">
     <div style="text-align: center; color: var(--gray); margin-bottom: 20px; font-weight: bold; color: var(--warning); font-size: 16px;">
-        📢 BOSS 狩獵管理平台
+        📢 BOSS 狩獵管理平台 
     </div>
 
     <div id="event-section">
@@ -72,11 +72,10 @@
 </div>
 
 <script>
-// ⚠️ 已經自動幫你帶入你專屬的 Firebase 金鑰
 const firebaseConfig = {
     apiKey: "AIzaSyAtoQ0h-0s9hZPOyIswNRgyp36V6iKvha0",
     authDomain: "boss-d6c8e.firebaseapp.com",
-    databaseURL: "https://boss-d6c8e-default-rtdb.asia-southeast1.firebasedatabase.app", // 自動補齊的資料庫網址
+    databaseURL: "https://boss-d6c8e-default-rtdb.asia-southeast1.firebasedatabase.app",
     projectId: "boss-d6c8e",
     storageBucket: "boss-d6c8e.firebasestorage.app",
     messagingSenderId: "958955342914",
@@ -155,7 +154,7 @@ function toggleFixed(name, time) {
     database.ref('fixed_bosses/' + key).set(!currentState);
 }
 
-function renderRow(boss, nextSpawn, onActionClick) {
+function renderRow(boss, nextSpawn, index, isEvent) {
     const now = new Date().getTime();
     let diff = nextSpawn - now;
     let isOver = diff < 0;
@@ -170,10 +169,10 @@ function renderRow(boss, nextSpawn, onActionClick) {
             <div class="next-time">${nextSpawn === 0 ? '---' : new Date(nextSpawn).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
             <div class="countdown ${isOver ? 'status-ready' : 'status-wait'}">${nextSpawn === 0 ? '--:--:--' : (isOver ? '已超過 ' : '') + h + ':' + m + ':' + s}</div>
             <div class="btn-group">
-                <button onclick="${onActionClick}('kill')">擊殺</button>
-                <button class="back-btn" onclick="${onActionClick}('back')">補登</button>
-                <button class="skip-btn" onclick="${onActionClick}('skip')">輪空</button>
-                <button class="fix-btn" onclick="${onActionClick}('fix')">修正</button>
+                <button onclick="handleAction('kill', ${index}, ${isEvent})">擊殺</button>
+                <button class="back-btn" onclick="handleAction('back', ${index}, ${isEvent})">補登</button>
+                <button class="skip-btn" onclick="handleAction('skip', ${index}, ${isEvent})">輪空</button>
+                <button class="fix-btn" onclick="handleAction('fix', ${index}, ${isEvent})">修正</button>
             </div>
         </div>
     `;
@@ -186,14 +185,14 @@ function render() {
     if (now < EVENT_END_DATE) {
         eventSection.style.display = 'block';
         let next = remoteEventData[eventConfig[0].id] || 0;
-        document.getElementById('event-boss-list').innerHTML = renderRow(eventConfig[0], next, `function(type){ handleAction(type, 0, true); }`);
+        eventSection.querySelector('#event-boss-list').innerHTML = renderRow(eventConfig[0], next, 0, true);
     } else {
         eventSection.style.display = 'none';
     }
     
     document.getElementById('wild-boss-list').innerHTML = wildConfig.map((b, i) => {
         let next = remoteWildData[i] || 0;
-        return renderRow(b, next, `function(type){ handleAction(type, ${i}, false); }`);
+        return renderRow(b, next, i, false);
     }).join('');
 
     document.getElementById('fixed-boss-list').innerHTML = fixedConfig.map(f => {
