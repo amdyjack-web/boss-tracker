@@ -93,7 +93,7 @@ const EVENT_END_DATE = new Date("2026-05-06T00:00:00").getTime();
 const wildConfig = [
     { name: "浮士德", cycle: 60 }, { name: "伊弗利特", cycle: 120 }, { name: "大腳瑪幽", cycle: 180 },
     { name: "綠王", cycle: 120 }, { name: "紅王", cycle: 120 }, { name: "巨型蠕蟲", cycle: 120 },
-    { name: "四色", cycle: 120 }, { name: "86飛龍", cycle: 120 }, { name: "83飛龍", cycle: 180 },
+    { name: "四色", cycle: 120 }, { name: "86飛龍上", cycle: 120 }, { name: "86飛龍下", cycle: 120 }, { name: "83飛龍", cycle: 180 },
     { name: "85飛龍", cycle: 180 }, { name: "大黑長者", cycle: 180 }, { name: "巨大鱷魚", cycle: 180 },
     { name: "強盜頭目", cycle: 180 }, { name: "樹精", cycle: 180 }, { name: "曼波兔王", cycle: 180 },
     { name: "守護螞蟻", cycle: 180 }, { name: "賽尼斯分身", cycle: 180 }, { name: "死亡騎士", cycle: 240 },
@@ -108,11 +108,14 @@ const eventConfig = [{ name: "【活動】死亡騎士", cycle: 120, id: "event_
 const fixedConfig = [
     { name: "奇岩地監 1F", times: ["06:00", "12:00", "18:00", "00:00"] },
     { name: "奇岩地監 2F", times: ["07:00", "14:00", "21:00"] },
+    { name: "奇岩地監 3F", times: ["20:15"] },
+    { name: "奇岩地監 4F", times: ["21:15"] },
     { name: "魔法師", times: ["01:00", "03:00", "05:00", "07:00", "09:00", "11:00", "13:00", "15:00", "17:00", "19:00", "21:00", "23:00"], note: "單數整點" },
     { name: "巴風特", times: ["14:00", "20:00"] },
     { name: "三王 (13/28/19)", times: ["19:15"] },
     { name: "象塔 8F 惡魔", times: ["22:00"] },
-    { name: "黑暗地監 4F", times: ["00:00"] }
+    { name: "黑暗地監 4F 騎士", times: ["18:30"] },
+    { name: "黑暗地監 4F 黑龍", times: ["00:00"] }
 ];
 
 let remoteWildData = {};
