@@ -43,13 +43,13 @@
             to { opacity: 1; filter: drop-shadow(0 0 8px rgba(239,68,68,0.8)); }
         }
 
-        /* 👑 新增：超級大王（克特、死騎、古代巨人、不死鳥）的專屬特殊標註樣式 */
+        /* 超級大王專屬特殊標註樣式 */
         .row-mega-boss {
-            border-left: 5px solid var(--event); /* 左側紫條 */
-            background: rgba(139, 92, 246, 0.05); /* 微弱的紫底 */
+            border-left: 5px solid var(--event); 
+            background: rgba(139, 92, 246, 0.05); 
         }
         .name-mega-boss {
-            color: #c084fc !important; /* 名字變亮紫色 */
+            color: #c084fc !important; 
             text-shadow: 0 0 4px rgba(139, 92, 246, 0.4);
         }
         
@@ -77,7 +77,7 @@
 
 <div class="container">
     <div style="text-align: center; color: var(--gray); margin-bottom: 20px; font-weight: bold; color: var(--warning); font-size: 18px;">
-        📢 BOSS 狩獵管理平台
+        📢 BOSS 狩獵管理平台 
     </div>
 
     <div id="event-section">
@@ -88,7 +88,7 @@
         <div id="event-boss-list"></div>
     </div>
     
-    <div class="section-title">野外首領 (快重生的在最上面 ➡️ 其次已超時)</div>
+    <div class="section-title">野外首領 (快重生 & 超時10分內置頂 ➡️ 其次超時過久)</div>
     <div class="grid-header">
         <div>首領名稱</div><div>預計重生</div><div>倒數計時</div><div>操作選項</div>
     </div>
@@ -129,7 +129,7 @@ var wildConfig = [
     { name: "守護螞蟻", cycle: 210 }, { name: "賽尼斯分身", cycle: 180 }, { name: "死亡騎士", cycle: 240 },
     { name: "蜘蛛", cycle: 240 }, { name: "奈克諾斯", cycle: 240 }, { name: "巨大飛龍", cycle: 360 },
     { name: "暗黑大將軍貝里斯", cycle: 360 }, { name: "烏勒庫斯", cycle: 360 },
-    { name: "卡司特", cycle: 450 }, { name: "變形怪首領", cycle: 210 }, { name: "不死鳥", cycle: 480 },
+    { name: "卡司特", cycle: 450 }, { name: "變形怪首領", cycle: 420 }, { name: "不死鳥", cycle: 480 },
     { name: "力卡溫", cycle: 480 }, { name: "古代巨人", cycle: 510 }, { name: "克特", cycle: 600 }
 ];
 
@@ -233,7 +233,6 @@ function renderRow(boss, nextSpawn, index, isEvent) {
     var statusClass = 'status-wait';
     var rowClass = '';
     
-    // 💡 判斷是否為需要特別標註的四大超級大王
     var isMegaBoss = (boss.name === "克特" || boss.name === "死亡騎士" || boss.name === "古代巨人" || boss.name === "不死鳥" || boss.name === "【活動】死亡騎士");
     if (isMegaBoss) {
         rowClass += ' row-mega-boss';
@@ -245,10 +244,9 @@ function renderRow(boss, nextSpawn, index, isEvent) {
         statusClass = 'status-ready';
     } else if (diff <= 300000) { 
         statusClass = 'status-danger';
-        rowClass += ' row-danger'; // 疊加紅色發光
+        rowClass += ' row-danger'; 
     }
     
-    // 如果是四大天王，名字前面加上皇冠 👑，並套用亮紫色
     var displayName = isMegaBoss ? '👑 ' + boss.name : boss.name;
     var nameClass = isMegaBoss ? 'boss-name name-mega-boss' : 'boss-name';
     
@@ -285,20 +283,42 @@ function render() {
     });
 
     sortedWildList.sort(function(a, b) {
+        // 未紀錄的沉底
         if (a.nextSpawn === 0 && b.nextSpawn !== 0) return 1;
         if (a.nextSpawn !== 0 && b.nextSpawn === 0) return -1;
         if (a.nextSpawn === 0 && b.nextSpawn === 0) return 0;
 
         var diffA = a.nextSpawn - now;
         var diffB = b.nextSpawn - now;
-        var isOverA = diffA < 0;
-        var isOverB = diffB < 0;
+        
+        // 💡 核心優化：計算是否在「超時 10 分鐘內」
+        // 10 分鐘 = 600,000 毫秒。如果 diff 在 -600000 到 0 之間，代表超時 10 分鐘內
+        var isTopPriorityA = (diffA >= -600000); 
+        var isTopPriorityB = (diffB >= -600000);
 
-        if (!isOverA && isOverB) return -1;
-        if (isOverA && !isOverB) return 1;
-        if (isOverA && isOverB) return diffA - diffB;
+        // 👑 規則一：如果是「倒數中」或「超時10分內」的王，排在「超時大於10分」的王上面
+        if (isTopPriorityA && !isTopPriorityB) return -1;
+        if (!isTopPriorityA && isTopPriorityB) return 1;
 
-        return diffA - diffB;
+        // 👑 規則二：如果兩隻王都屬於【最頂層】(倒數中 或 超時10分內)
+        if (isTopPriorityA && isTopPriorityB) {
+            var isOverA = diffA < 0;
+            var isOverB = diffB < 0;
+            
+            // 如果一隻倒數、一隻超時10分內：讓倒數中的王排在超時的王上面
+            if (!isOverA && isOverB) return -1;
+            if (isOverA && !isOverB) return 1;
+            
+            // 如果兩隻都超時10分內：剛超時的(負得少的)排上面
+            if (isOverA && isOverB) return b.nextSpawn - a.nextSpawn;
+            
+            // 如果兩隻都倒數中：快重生的(剩餘時間短的)排上面
+            return diffA - diffB;
+        }
+
+        // 👑 規則三：如果兩隻王都屬於【第二層】(超時都大於10分鐘了)
+        // 依然是剛過10分鐘不久的（負得少的）排在最老過期的上面
+        return b.nextSpawn - a.nextSpawn;
     });
 
     var wildContainer = document.getElementById('wild-boss-list');
