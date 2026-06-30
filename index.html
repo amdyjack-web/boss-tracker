@@ -243,11 +243,11 @@ function renderRow(boss, nextSpawn, index, isEvent) {
         rowClass += ' row-mega-boss';
     }
 
-    // 計算錯過王的次數邏輯
+    // 計算過王的次數邏輯
     var missedPrefix = '';
     if (nextSpawn !== 0 && isOver) {
         var missedCount = Math.floor(absDiff / (boss.cycle * 60000)) + 1;
-        missedPrefix = '<span style="font-size:15px; color:var(--danger); margin-right:8px; font-weight:bold;">(錯過 ' + missedCount + ' 次)</span>';
+        missedPrefix = '<span style="font-size:15px; color:var(--danger); margin-right:8px; font-weight:bold;">(過 ' + missedCount + ' 次)</span>';
     }
 
     if (nextSpawn === 0) {
