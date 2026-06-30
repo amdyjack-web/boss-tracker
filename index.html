@@ -121,15 +121,15 @@ var database = firebase.database();
 var EVENT_END_DATE = new Date("2026-05-06T00:00:00").getTime();
 
 var wildConfig = [
-    { name: "伊弗利特", cycle: 120 }, { name: "大腳瑪幽", cycle: 180 },
+    { name: "伊弗利特", cycle: 120 },  { name: "不死鳥", cycle: 480 }, { name: "大腳瑪幽", cycle: 180 },
     { name: "綠王", cycle: 120 }, { name: "紅王", cycle: 120 }, { name: "巨型蠕蟲", cycle: 120 },
     { name: "四色", cycle: 120 }, { name: "86飛龍上", cycle: 120 }, { name: "86飛龍下", cycle: 120 }, { name: "83飛龍", cycle: 180 },
-    { name: "85飛龍", cycle: 180 }, { name: "大黑長者", cycle: 180 }, { name: "巨大鱷魚", cycle: 180 },
-    { name: "強盜頭目", cycle: 180 }, { name: "樹精", cycle: 180 },
-    { name: "守護螞蟻", cycle: 210 }, { name: "賽尼斯分身", cycle: 180 }, { name: "死亡騎士", cycle: 240 },
-    { name: "蜘蛛", cycle: 240 }, { name: "奈克諾斯", cycle: 240 }, { name: "巨大飛龍", cycle: 360 },
-    { name: "暗黑大將軍貝里斯", cycle: 360 }, { name: "烏勒庫斯", cycle: 360 },
-    { name: "卡司特", cycle: 450 }, { name: "變形怪首領", cycle: 210 }, { name: "不死鳥", cycle: 480 },
+    { name: "85飛龍", cycle: 180 }, { name: "大黑長者", cycle: 180 }, { name: "巨大飛龍", cycle: 360 },
+    { name: "強盜頭目", cycle: 180 }, { name: "巨大鱷魚", cycle: 180 },
+    { name: "守護螞蟻", cycle: 210 },  { name: "死亡騎士", cycle: 240 },{ name: "樹精", cycle: 180 },
+    { name: "蜘蛛", cycle: 240 }, { name: "奈克諾斯", cycle: 240 }, { name: "烏勒庫斯", cycle: 360 },
+    { name: "暗黑大將軍貝里斯", cycle: 360 }, { name: "賽尼斯分身", cycle: 180 },
+    { name: "卡司特", cycle: 450 }, { name: "變形怪首領", cycle: 210 },
     { name: "力卡溫", cycle: 480 }, { name: "古代巨人", cycle: 510 }, { name: "克特", cycle: 600 }
 ];
 
@@ -243,7 +243,7 @@ function renderRow(boss, nextSpawn, index, isEvent) {
         rowClass += ' row-mega-boss';
     }
 
-    // 計算錯過王的次數邏輯（已將 color 改為亮紅危險色 var(--danger) 並加粗）
+    // 計算錯過王的次數邏輯
     var missedPrefix = '';
     if (nextSpawn !== 0 && isOver) {
         var missedCount = Math.floor(absDiff / (boss.cycle * 60000)) + 1;
@@ -304,8 +304,8 @@ function render() {
 
         var getPriorityScore = function(diff) {
             if (diff > 0 && diff <= 300000) return 0;   // 剩 5 分鐘內 (紅色發光)
-            if (diff > 300000) return 2;                // 正常倒數中 (綠字)
             if (diff >= -600000 && diff <= 0) return 1;  // 超時 10 分鐘內停留區 (黃字)
+            if (diff > 300000) return 2;                // 正常倒數中 (綠字)
             return 3;                                   // 超時超過 10 分鐘下沉區
         };
 
