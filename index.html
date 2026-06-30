@@ -77,7 +77,7 @@
 
 <div class="container">
     <div style="text-align: center; color: var(--gray); margin-bottom: 20px; font-weight: bold; color: var(--warning); font-size: 18px;">
-        📢 BOSS 狩獵管理平台
+        📢 BOSS 狩獵管理平台 
     </div>
 
     <div id="event-section">
@@ -180,6 +180,7 @@ function checkResetLogic() {
     var lastWedReset = localStorage.getItem('last_wed_reset_week');
     var currentWeekId = now.getFullYear() + "-W" + getWeekNumber(now);
     
+    // 每週三凌晨 05:00 清空時間表邏輯
     if (now.getDay() === 3 && now.getHours() >= 5 && lastWedReset !== currentWeekId) {
         database.ref('wild_bosses').remove();  
         database.ref('event_bosses').remove(); 
@@ -197,7 +198,7 @@ function getWeekNumber(d) {
 function handleAction(type, index, isEvent) {
     var now = new Date().getTime();
     var config = isEvent ? eventConfig[0] : wildConfig[index];
-    var path = isEvent ? 'event_decay/' + config.id : 'wild_bosses/' + index; // 改用專屬路徑防干擾
+    var path = isEvent ? 'event_decay/' + config.id : 'wild_bosses/' + index;
     if(!isEvent) path = 'wild_bosses/' + index;
 
     if (type === 'kill') {
@@ -293,29 +294,30 @@ function render() {
         var diffA = a.nextSpawn - now;
         var diffB = b.nextSpawn - now;
 
-        // 🧠 核心重寫：強制使用優先級大類代號 (數字越小排越上面)
+        // 🧠 核心防護重寫：嚴格對齊分流代碼 (分數越小排越上面)
         var getPriorityScore = function(diff) {
-            if (diff > 0 && diff <= 300000) return 0;   // 【最高優先】倒數 5 分鐘內 (紅色發光)
-            if (diff > 300000) return 2;                // 【第二優先】正常倒數中 (綠色)
-            if (diff >= -600000 && diff <= 0) return 1;  // 【第三優先】超時 10 分鐘內停留區 (黃色)
-            return 3;                                   // 【第四優先】過期沉底區
+            if (diff > 0 && diff <= 300000) return 0;   // 【階級0】剩 5 分鐘內 (紅色發光)
+            if (diff > 300000) return 2;                // 【階級1】正常倒數中 (綠色)
+            if (diff >= -600000 && diff <= 0) return 1;  // 【階級2】超時 10 分鐘內停留區 (黃色)
+            return 3;                                   // 【階級3】過期下沉區 (超時超過10分)
         };
 
         var scoreA = getPriorityScore(diffA);
         var scoreB = getPriorityScore(diffB);
 
-        // 如果兩隻王屬於不同的優先大類，直接按大類代號分出上下
+        // 如果屬於不同階級大類，直接由小到大分上下
         if (scoreA !== scoreB) {
             return scoreA - scoreB;
         }
 
-        // 如果同在一個優先大類內，進行細部排序：
+        // 💡 如果同在一個階級大類內，進行分流細部精密排序：
         if (scoreA === 0 || scoreA === 1) {
-            // 倒數區：時間剩越少（快重生的）排越上面
+            // 【倒數中區】：時間剩越少（快重生的王）排越上面
             return diffA - diffB;
         }
         if (scoreA === 2 || scoreA === 3) {
-            // 超時區：剛超時的（負得少的、接近0分鐘的）排最上面
+            // 【超時黃字區】：剛超時的（負得少、超時秒數短的）排最上面
+            // 用 b.nextSpawn - a.nextSpawn 來強制作反向排序，修正負數相減漏洞！
             return b.nextSpawn - a.nextSpawn;
         }
         return 0;
