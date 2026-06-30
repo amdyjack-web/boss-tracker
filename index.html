@@ -10,24 +10,54 @@
             --bg: #0f172a; --card: #1e293b; --text: #f8fafc;
             --accent: #10b981; --warning: #fbbf24; --info: #38bdf8; --fixed: #f472b6; --danger: #ef4444; --event: #8b5cf6; --gray: #64748b;
         }
-        body { background: var(--bg); color: var(--text); font-family: sans-serif; padding: 20px; font-size: 14px; }
+        body { background: var(--bg); color: var(--text); font-family: sans-serif; padding: 20px; font-size: 15px; }
         .container { max-width: 1150px; margin: 0 auto; background: var(--card); border-radius: 12px; padding: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .section-title { font-size: 18px; font-weight: bold; padding: 10px; border-left: 4px solid var(--accent); margin: 20px 0 10px; background: rgba(255,255,255,0.05); }
+        .section-title { font-size: 20px; font-weight: bold; padding: 10px; border-left: 4px solid var(--accent); margin: 20px 0 10px; background: rgba(255,255,255,0.05); }
         .event-title { border-left-color: var(--event); color: var(--event); }
         
-        .grid-header { display: grid; grid-template-columns: 1.8fr 1.2fr 1.5fr 3fr; padding: 10px 15px; color: var(--gray); font-weight: bold; border-bottom: 2px solid #334155; }
-        .boss-row { display: grid; grid-template-columns: 1.8fr 1.2fr 1.5fr 3fr; padding: 12px 15px; border-bottom: 1px solid #334155; align-items: center; transition: 0.2s; }
+        .grid-header { display: grid; grid-template-columns: 1.8fr 1.2fr 1.5fr 3fr; padding: 10px 15px; color: var(--gray); font-weight: bold; border-bottom: 2px solid #334155; font-size: 15px; }
+        .boss-row { display: grid; grid-template-columns: 1.8fr 1.2fr 1.5fr 3fr; padding: 14px 15px; border-bottom: 1px solid #334155; align-items: center; transition: 0.3s; }
         .boss-row:hover { background: rgba(255,255,255,0.03); }
         
-        .boss-name { font-weight: bold; color: var(--info); }
-        .countdown { font-family: monospace; font-weight: bold; font-size: 16px; }
+        .boss-name { font-weight: bold; color: var(--info); font-size: 17px; }
+        .next-time { font-family: monospace; color: #94a3b8; font-size: 16px; }
+        
+        .countdown { font-family: monospace; font-weight: bold; font-size: 22px; }
         .status-ready { color: var(--warning); }
         .status-wait { color: var(--accent); }
+        
+        /* 5分鐘內快出王的「整行發光」與「字體極大化」警示 */
+        .row-danger {
+            background: rgba(239, 68, 68, 0.15) !important; 
+            border-left: 5px solid var(--danger) !important; 
+            box-shadow: inset 0 0 10px rgba(239, 68, 68, 0.2);
+        }
+        .status-danger { 
+            color: var(--danger) !important; 
+            font-size: 26px !important; 
+            font-weight: 900 !important; 
+            animation: fast-pulse 0.8s infinite alternate; 
+        }
+        @keyframes fast-pulse {
+            from { opacity: 0.5; filter: drop-shadow(0 0 2px rgba(239,68,68,0.3)); }
+            to { opacity: 1; filter: drop-shadow(0 0 8px rgba(239,68,68,0.8)); }
+        }
+
+        /* 👑 新增：超級大王（克特、死騎、古代巨人、不死鳥）的專屬特殊標註樣式 */
+        .row-mega-boss {
+            border-left: 5px solid var(--event); /* 左側紫條 */
+            background: rgba(139, 92, 246, 0.05); /* 微弱的紫底 */
+        }
+        .name-mega-boss {
+            color: #c084fc !important; /* 名字變亮紫色 */
+            text-shadow: 0 0 4px rgba(139, 92, 246, 0.4);
+        }
         
         .btn-group { display: flex; gap: 4px; flex-wrap: wrap; }
         button { 
             flex: 1; background: transparent; border: 1px solid var(--accent); color: var(--accent); 
-            padding: 6px 4px; border-radius: 4px; cursor: pointer; font-size: 11px; white-space: nowrap; transition: 0.2s;
+            padding: 8px 4px; border-radius: 4px; cursor: pointer; font-size: 12px; white-space: nowrap; transition: 0.2s;
+            font-weight: bold;
         }
         button:hover { background: var(--accent); color: white; }
         button.skip-btn { border-color: var(--danger); color: var(--danger); }
@@ -37,7 +67,7 @@
         button.back-btn { border-color: #fb923c; color: #fb923c; }
         button.back-btn:hover { background: #fb923c; color: white; }
 
-        button.time-btn { flex: none; border-color: var(--fixed); color: var(--fixed); min-width: 65px; margin-bottom: 2px; }
+        button.time-btn { flex: none; border-color: var(--fixed); color: var(--fixed); min-width: 75px; margin-bottom: 2px; font-size: 13px; }
         button.time-btn.done { border-color: var(--gray); color: var(--gray); background: rgba(255,255,255,0.1); }
         
         #event-section { display: none; }
@@ -46,8 +76,8 @@
 <body>
 
 <div class="container">
-    <div style="text-align: center; color: var(--gray); margin-bottom: 20px; font-weight: bold; color: var(--warning); font-size: 16px;">
-        📢 BOSS 狩獵管理平台 
+    <div style="text-align: center; color: var(--gray); margin-bottom: 20px; font-weight: bold; color: var(--warning); font-size: 18px;">
+        📢 BOSS 狩獵管理平台
     </div>
 
     <div id="event-section">
@@ -58,13 +88,13 @@
         <div id="event-boss-list"></div>
     </div>
     
-    <div class="section-title">野外首領 (週期重生)</div>
+    <div class="section-title">野外首領 (快重生的在最上面 ➡️ 其次已超時)</div>
     <div class="grid-header">
         <div>首領名稱</div><div>預計重生</div><div>倒數計時</div><div>操作選項</div>
     </div>
     <div id="wild-boss-list"></div>
 
-    <div class="section-title">固定重生首領 (點擊時間標記紀錄)</div>
+    <div class="section-title">固定重生首領 (每日凌晨 05:00 自動重置標記)</div>
     <div class="grid-header" style="grid-template-columns: 2fr 3fr 1.2fr;">
         <div>首領名稱</div><div>重生時段 (點擊紀錄)</div><div>備註</div>
     </div>
@@ -72,7 +102,7 @@
 </div>
 
 <script>
-const firebaseConfig = {
+var firebaseConfig = {
     apiKey: "AIzaSyAtoQ0h-0s9hZPOyIswNRgyp36V6iKvha0",
     authDomain: "boss-d6c8e.firebaseapp.com",
     databaseURL: "https://boss-d6c8e-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -83,28 +113,29 @@ const firebaseConfig = {
     measurementId: "G-2L2CMM5Y14"
 };
 
-// 初始化 Firebase
-firebase.initializeApp(firebaseConfig);
-const database = firebase.database();
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+var database = firebase.database();
 
-const EVENT_END_DATE = new Date("2026-05-06T00:00:00").getTime();
+var EVENT_END_DATE = new Date("2026-05-06T00:00:00").getTime();
 
-const wildConfig = [
-    { name: "浮士德", cycle: 60 }, { name: "伊弗利特", cycle: 120 }, { name: "大腳瑪幽", cycle: 180 },
+var wildConfig = [
+    { name: "伊弗利特", cycle: 120 }, { name: "大腳瑪幽", cycle: 180 },
     { name: "綠王", cycle: 120 }, { name: "紅王", cycle: 120 }, { name: "巨型蠕蟲", cycle: 120 },
     { name: "四色", cycle: 120 }, { name: "86飛龍上", cycle: 120 }, { name: "86飛龍下", cycle: 120 }, { name: "83飛龍", cycle: 180 },
     { name: "85飛龍", cycle: 180 }, { name: "大黑長者", cycle: 180 }, { name: "巨大鱷魚", cycle: 180 },
-    { name: "強盜頭目", cycle: 180 }, { name: "樹精", cycle: 180 }, { name: "曼波兔王", cycle: 180 },
-    { name: "守護螞蟻", cycle: 180 }, { name: "賽尼斯分身", cycle: 180 }, { name: "死亡騎士", cycle: 240 },
+    { name: "強盜頭目", cycle: 180 }, { name: "樹精", cycle: 180 },
+    { name: "守護螞蟻", cycle: 210 }, { name: "賽尼斯分身", cycle: 180 }, { name: "死亡騎士", cycle: 240 },
     { name: "蜘蛛", cycle: 240 }, { name: "奈克諾斯", cycle: 240 }, { name: "巨大飛龍", cycle: 360 },
-    { name: "惡魔監視者", cycle: 360 }, { name: "貝里斯", cycle: 360 }, { name: "烏勒庫斯", cycle: 360 },
+    { name: "貝里斯", cycle: 360 }, { name: "烏勒庫斯", cycle: 360 },
     { name: "卡司特", cycle: 450 }, { name: "變形怪首領", cycle: 420 }, { name: "不死鳥", cycle: 480 },
     { name: "力卡溫", cycle: 480 }, { name: "古代巨人", cycle: 510 }, { name: "克特", cycle: 600 }
 ];
 
-const eventConfig = [{ name: "【活動】死亡騎士", cycle: 120, id: "event_dk" }];
+var eventConfig = [{ name: "【活動】死亡騎士", cycle: 120, id: "event_dk" }];
 
-const fixedConfig = [
+var fixedConfig = [
     { name: "奇岩地監 1F", times: ["06:00", "12:00", "18:00", "00:00"] },
     { name: "奇岩地監 2F", times: ["07:00", "14:00", "21:00"] },
     { name: "奇岩地監 3F", times: ["20:15"] },
@@ -113,35 +144,71 @@ const fixedConfig = [
     { name: "巴風特", times: ["14:00", "20:00"] },
     { name: "三王 (13/28/19)", times: ["19:15"] },
     { name: "象塔 8F 惡魔", times: ["22:00"] },
-    { name: "黑暗地監 4F 騎士", times: ["18:30"] },
-    { name: "黑暗地監 4F 黑龍", times: ["00:00"] }
+    { name: "異界裂縫 異界的炎魔", times: ["23:00"] },
+    { name: "烈焰地監 2F 烈焰的死亡騎士", times: ["23:30"] },
+    { name: "黑暗地監 4F 漆黑的軍團長杜拉漢", times: ["18:30"] },
+    { name: "黑暗地監 4F 德拉卡利斯", times: ["00:00"] }
 ];
 
-let remoteWildData = {};
-let remoteEventData = {};
-let remoteFixedData = {};
+var remoteWildData = {};
+var remoteEventData = {};
+var remoteFixedData = {};
 
-// 監聽雲端即時更新
-database.ref('wild_bosses').on('value', (snapshot) => { remoteWildData = snapshot.val() || {}; render(); });
-database.ref('event_bosses').on('value', (snapshot) => { remoteEventData = snapshot.val() || {}; render(); });
-database.ref('fixed_bosses').on('value', (snapshot) => { remoteFixedData = snapshot.val() || {}; render(); });
+database.ref('wild_bosses').on('value', function(snapshot) { remoteWildData = snapshot.val() || {}; render(); });
+database.ref('event_bosses').on('value', function(snapshot) { remoteEventData = snapshot.val() || {}; render(); });
+database.ref('fixed_bosses').on('value', function(snapshot) { remoteFixedData = snapshot.val() || {}; render(); });
 
-function handleAction(type, index, isEvent = false) {
-    const now = new Date().getTime();
-    const config = isEvent ? eventConfig[0] : wildConfig[index];
-    const path = isEvent ? 'event_bosses/' + config.id : 'wild_bosses/' + index;
+setInterval(function() {
+    try {
+        checkResetLogic();
+    } catch(e) {
+        console.log("重置檢查暫時卡住: ", e);
+    }
+}, 10000);
+
+function checkResetLogic() {
+    var now = new Date();
+    var todayStr = now.getFullYear() + "-" + (now.getMonth()+1) + "-" + now.getDate();
+    var resetTimeToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 5, 0, 0).getTime();
     
-    let currentNextSpawn = isEvent ? (remoteEventData[config.id] || 0) : (remoteWildData[index] || 0);
+    var lastFixedReset = localStorage.getItem('last_fixed_reset_date');
+    if (now.getTime() >= resetTimeToday && lastFixedReset !== todayStr) {
+        database.ref('fixed_bosses').remove();
+        localStorage.setItem('last_fixed_reset_date', todayStr);
+    }
+    
+    var lastWedReset = localStorage.getItem('last_wed_reset_week');
+    var currentWeekId = now.getFullYear() + "-W" + getWeekNumber(now);
+    
+    if (now.getDay() === 3 && now.getHours() >= 5 && lastWedReset !== currentWeekId) {
+        database.ref('wild_bosses').remove();
+        database.ref('event_bosses').remove();
+        localStorage.setItem('last_wed_reset_week', currentWeekId);
+    }
+}
+
+function getWeekNumber(d) {
+    d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
+    var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+}
+
+function handleAction(type, index, isEvent) {
+    var now = new Date().getTime();
+    var config = isEvent ? eventConfig[0] : wildConfig[index];
+    var path = isEvent ? 'event_bosses/' + config.id : 'wild_bosses/' + index;
+    var currentNextSpawn = isEvent ? (remoteEventData[config.id] || 0) : (remoteWildData[index] || 0);
 
     if (type === 'kill') {
         database.ref(path).set(now + (config.cycle * 60000));
     } else if (type === 'back') {
-        let minAgo = prompt(`[${config.name}] 是幾分鐘前殺的？`, "5");
+        var minAgo = prompt("[" + config.name + "] 是幾分鐘前殺的？", "5");
         if (minAgo !== null && !isNaN(minAgo)) {
             database.ref(path).set((now - minAgo * 60000) + (config.cycle * 60000));
         }
     } else if (type === 'skip') {
-        let next = (currentNextSpawn === 0 || currentNextSpawn < (now - 86400000)) ? now + (config.cycle * 60000) : currentNextSpawn + (config.cycle * 60000);
+        var next = (currentNextSpawn === 0 || currentNextSpawn < (now - 86400000)) ? now + (config.cycle * 60000) : currentNextSpawn + (config.cycle * 60000);
         database.ref(path).set(next);
     } else if (type === 'fix') {
         if (currentNextSpawn !== 0) database.ref(path).set(currentNextSpawn - (config.cycle * 60000));
@@ -149,68 +216,116 @@ function handleAction(type, index, isEvent = false) {
 }
 
 function toggleFixed(name, time) {
-    let key = `${name}_${time}`.replace(/[.#$/[\]]/g, "_");
-    let currentState = remoteFixedData[key] === true;
+    var key = (name + "_" + time).replace(/[.#$/[\]]/g, "_");
+    var currentState = remoteFixedData[key] === true;
     database.ref('fixed_bosses/' + key).set(!currentState);
 }
 
 function renderRow(boss, nextSpawn, index, isEvent) {
-    const now = new Date().getTime();
-    let diff = nextSpawn - now;
-    let isOver = diff < 0;
-    let absDiff = Math.abs(diff);
-    const h = Math.floor(absDiff / 3600000).toString().padStart(2, '0');
-    const m = Math.floor((absDiff % 3600000) / 60000).toString().padStart(2, '0');
-    const s = Math.floor((absDiff % 60000) / 1000).toString().padStart(2, '0');
+    var now = new Date().getTime();
+    var diff = nextSpawn - now;
+    var isOver = diff < 0;
+    var absDiff = Math.abs(diff);
+    var h = Math.floor(absDiff / 3600000).toString().padStart(2, '0');
+    var m = Math.floor((absDiff % 3600000) / 60000).toString().padStart(2, '0');
+    var s = Math.floor((absDiff % 60000) / 1000).toString().padStart(2, '0');
     
-    return `
-        <div class="boss-row">
-            <div class="boss-name">${boss.name} <span style="font-size:10px; color:var(--gray);">(${boss.cycle/60}H)</span></div>
-            <div class="next-time">${nextSpawn === 0 ? '---' : new Date(nextSpawn).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-            <div class="countdown ${isOver ? 'status-ready' : 'status-wait'}">${nextSpawn === 0 ? '--:--:--' : (isOver ? '已超過 ' : '') + h + ':' + m + ':' + s}</div>
-            <div class="btn-group">
-                <button onclick="handleAction('kill', ${index}, ${isEvent})">擊殺</button>
-                <button class="back-btn" onclick="handleAction('back', ${index}, ${isEvent})">補登</button>
-                <button class="skip-btn" onclick="handleAction('skip', ${index}, ${isEvent})">輪空</button>
-                <button class="fix-btn" onclick="handleAction('fix', ${index}, ${isEvent})">修正</button>
-            </div>
-        </div>
-    `;
+    var statusClass = 'status-wait';
+    var rowClass = '';
+    
+    // 💡 判斷是否為需要特別標註的四大超級大王
+    var isMegaBoss = (boss.name === "克特" || boss.name === "死亡騎士" || boss.name === "古代巨人" || boss.name === "不死鳥" || boss.name === "【活動】死亡騎士");
+    if (isMegaBoss) {
+        rowClass += ' row-mega-boss';
+    }
+
+    if (nextSpawn === 0) {
+        statusClass = '';
+    } else if (isOver) {
+        statusClass = 'status-ready';
+    } else if (diff <= 300000) { 
+        statusClass = 'status-danger';
+        rowClass += ' row-danger'; // 疊加紅色發光
+    }
+    
+    // 如果是四大天王，名字前面加上皇冠 👑，並套用亮紫色
+    var displayName = isMegaBoss ? '👑 ' + boss.name : boss.name;
+    var nameClass = isMegaBoss ? 'boss-name name-mega-boss' : 'boss-name';
+    
+    return '<div class="boss-row ' + rowClass + '">' +
+        '<div class="' + nameClass + '">' + displayName + ' <span style="font-size:11px; color:var(--gray);">(' + (boss.cycle/60) + 'H)</span></div>' +
+        '<div class="next-time">' + (nextSpawn === 0 ? '---' : new Date(nextSpawn).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})) + '</div>' +
+        '<div class="countdown ' + statusClass + '">' + (nextSpawn === 0 ? '--:--:--' : (isOver ? '已超過 ' : '') + h + ':' + m + ':' + s) + '</div>' +
+        '<div class="btn-group">' +
+            '<button onclick="handleAction(\'kill\', ' + index + ', ' + isEvent + ')">擊殺</button>' +
+            '<button class="back-btn" onclick="handleAction(\'back\', ' + index + ', ' + isEvent + ')">補登</button>' +
+            '<button class="skip-btn" onclick="handleAction(\'skip\', ' + index + ', ' + isEvent + ')">輪空</button>' +
+            '<button class="fix-btn" onclick="handleAction(\'fix\', ' + index + ', ' + isEvent + ')">修正</button>' +
+        '</div>' +
+    '</div>';
 }
 
 function render() {
-    const now = new Date().getTime();
-    const eventSection = document.getElementById('event-section');
+    var now = new Date().getTime();
     
-    if (now < EVENT_END_DATE) {
-        eventSection.style.display = 'block';
-        let next = remoteEventData[eventConfig[0].id] || 0;
-        eventSection.querySelector('#event-boss-list').innerHTML = renderRow(eventConfig[0], next, 0, true);
-    } else {
-        eventSection.style.display = 'none';
+    var eventSection = document.getElementById('event-section');
+    if (eventSection) {
+        if (now < EVENT_END_DATE) {
+            eventSection.style.display = 'block';
+            var next = remoteEventData[eventConfig[0].id] || 0;
+            var listContainer = document.getElementById('event-boss-list');
+            if (listContainer) listContainer.innerHTML = renderRow(eventConfig[0], next, 0, true);
+        } else {
+            eventSection.style.display = 'none';
+        }
     }
     
-    document.getElementById('wild-boss-list').innerHTML = wildConfig.map((b, i) => {
-        let next = remoteWildData[i] || 0;
-        return renderRow(b, next, i, false);
-    }).join('');
+    var sortedWildList = wildConfig.map(function(boss, i) {
+        return { config: boss, index: i, nextSpawn: remoteWildData[i] || 0 };
+    });
 
-    document.getElementById('fixed-boss-list').innerHTML = fixedConfig.map(f => {
-        let timeBtns = f.times.map(t => {
-            let key = `${f.name}_${t}`.replace(/[.#$/[\]]/g, "_");
-            let isDone = remoteFixedData[key] === true;
-            return `<button class="time-btn ${isDone ? 'done' : ''}" onclick="toggleFixed('${f.name}', '${t}')">${isDone ? '✓ ' : ''}${t}</button>`;
-        }).join(' ');
-        return `
-            <div class="boss-row" style="grid-template-columns: 2fr 3fr 1.2fr;">
-                <div class="boss-name" style="color:var(--fixed)">${f.name}</div>
-                <div class="btn-group">${timeBtns}</div>
-                <div style="color:var(--gray); font-size:12px;">${f.note || '點擊時段紀錄'}</div>
-            </div>
-        `;
-    }).join('');
+    sortedWildList.sort(function(a, b) {
+        if (a.nextSpawn === 0 && b.nextSpawn !== 0) return 1;
+        if (a.nextSpawn !== 0 && b.nextSpawn === 0) return -1;
+        if (a.nextSpawn === 0 && b.nextSpawn === 0) return 0;
+
+        var diffA = a.nextSpawn - now;
+        var diffB = b.nextSpawn - now;
+        var isOverA = diffA < 0;
+        var isOverB = diffB < 0;
+
+        if (!isOverA && isOverB) return -1;
+        if (isOverA && !isOverB) return 1;
+        if (isOverA && isOverB) return diffA - diffB;
+
+        return diffA - diffB;
+    });
+
+    var wildContainer = document.getElementById('wild-boss-list');
+    if (wildContainer) {
+        wildContainer.innerHTML = sortedWildList.map(function(item) {
+            return renderRow(item.config, item.nextSpawn, item.index, false);
+        }).join('');
+    }
+
+    var fixedContainer = document.getElementById('fixed-boss-list');
+    if (fixedContainer) {
+        fixedContainer.innerHTML = fixedConfig.map(function(f) {
+            var timeBtns = f.times.map(function(t) {
+                var key = (f.name + "_" + t).replace(/[.#$/[\]]/g, "_");
+                var isDone = remoteFixedData[key] === true;
+                return '<button class="time-btn ' + (isDone ? 'done' : '') + '" onclick="toggleFixed(\'' + f.name + '\', \'' + t + '\')">' + (isDone ? '✓ ' : '') + t + '</button>';
+            }).join(' ');
+            return '<div class="boss-row" style="grid-template-columns: 2fr 3fr 1.2fr;">' +
+                '<div class="boss-name" style="color:var(--fixed); font-size:16px;">' + f.name + '</div>' +
+                '<div class="btn-group">' + timeBtns + '</div>' +
+                '<div style="color:var(--gray); font-size:12px;">' + (f.note || '點擊時段紀錄') + '</div>' +
+            '</div>';
+        }).join('');
+    }
 }
 
+render();
 setInterval(render, 1000);
 </script>
 </body>
