@@ -179,26 +179,21 @@ setInterval(function() {
 
 function checkResetLogic() {
     var now = new Date();
-    var todayStr = now.getFullYear() + "-" + (now.getMonth()+1) + "-" + now.getDate();
-    var resetTimeToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 5, 0, 0).getTime();
     
+    // 使用絕對台灣時間 (UTC+8) 的小時與分鐘計算
+    var localTimeMs = now.getTime() + (now.getTimezoneOffset() * 60000) + (8 * 3600000);
+    var localDate = new Date(localTimeMs);
+    
+    var todayStr = localDate.getFullYear() + "-" + (localDate.getMonth()+1) + "-" + localDate.getDate();
+    var resetTimeToday = new Date(localDate.getFullYear(), localDate.getMonth(), localDate.getDate(), 5, 0, 0).getTime();
+    var currentTaiwanHour = localDate.getHours();
+
     // 1. 每日凌晨 05:00 固定王重置 (同步雲端鎖)
     if (now.getTime() >= resetTimeToday && cloudResetStatus.last_fixed_reset_date !== todayStr) {
         database.ref('fixed_bosses').remove();
         database.ref('reset_status/last_fixed_reset_date').set(todayStr);
     }
-    
-    // 2. 每週三維修清理安全重置鎖
-    var lastWedReset = localStorage.getItem('last_wed_reset_week');
-    var currentWeekId = localDate.getFullYear() + "-W" + getWeekNumber(localDate);
-    
-    // 安全限制：必須「台灣時間週三」且「正好在清晨 5 點這一個小時內」且「本週還沒清空過」才會執行
-    if (localDate.getDay() === 3 && currentTaiwanHour === 5 && lastWedReset !== currentWeekId) {
-        database.ref('wild_bosses').remove();  
-        database.ref('event_bosses').remove(); 
-        localStorage.setItem('last_wed_reset_week', currentWeekId);
-        console.log("🧹 本地台灣時間清晨 05:00 觸發維修清空成功！");
-    }
+
 }
 
 function getWeekNumber(d) {
@@ -209,21 +204,39 @@ function getWeekNumber(d) {
 }
 
 function handleAction(type, index, isEvent) {
-    var now = new Date().getTime();
+    var now = new Date();
     var config = isEvent ? eventConfig[0] : wildConfig[index];
     var path = isEvent ? 'event_decay/' + config.id : 'wild_bosses/' + index;
     if(!isEvent) path = 'wild_bosses/' + index;
 
     if (type === 'kill') {
-        database.ref(path).set(now + (config.cycle * 60000));
+        database.ref(path).set(now.getTime() + (config.cycle * 60000));
     } else if (type === 'back') {
-        var minAgo = prompt("[" + config.name + "] 是幾分鐘前殺的？", "5");
-        if (minAgo !== null && !isNaN(minAgo)) {
-            database.ref(path).set((now - minAgo * 60000) + (config.cycle * 60000));
+        // 補登功能：直接彈窗輸入精準時間（格式 14:20 或 05:30）
+        var killTimeStr = prompt("[" + config.name + "] 請輸入擊殺時間\n格式範例 -> 14:20 或 05:30", "");
+        if (killTimeStr && killTimeStr.includes(":")) {
+            var parts = killTimeStr.split(":");
+            var hr = parseInt(parts[0], 10);
+            var min = parseInt(parts[1], 10);
+            
+            if (!isNaN(hr) && !isNaN(min) && hr >= 0 && hr < 24 && min >= 0 && min < 60) {
+                // 以今天的年、月、日為基準建立擊殺時間
+                var targetKillDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hr, min, 0);
+                
+                // 如果輸入的時間比現在還大，代表可能是昨天晚上的跨夜時間，自動往前減一天
+                if (targetKillDate.getTime() > now.getTime()) {
+                    targetKillDate.setDate(targetKillDate.getDate() - 1);
+                }
+                
+                // 預計重生時間 = 擊殺時間 + 週期
+                database.ref(path).set(targetKillDate.getTime() + (config.cycle * 60000));
+            } else {
+                alert("時間格式輸入錯誤，請輸入 00:00 ~ 23:59 之間的時間！");
+            }
         }
     } else if (type === 'skip') {
         var currentNextSpawn = isEvent ? (remoteEventData[config.id] || 0) : (remoteWildData[index] || 0);
-        var next = (currentNextSpawn === 0 || currentNextSpawn < (now - 86400000)) ? now + (config.cycle * 60000) : currentNextSpawn + (config.cycle * 60000);
+        var next = (currentNextSpawn === 0 || currentNextSpawn < (now.getTime() - 86400000)) ? now.getTime() + (config.cycle * 60000) : currentNextSpawn + (config.cycle * 60000);
         database.ref(path).set(next);
     } else if (type === 'fix') {
         var currentNextSpawn = isEvent ? (remoteEventData[config.id] || 0) : (remoteWildData[index] || 0);
@@ -254,7 +267,6 @@ function renderRow(boss, nextSpawn, index, isEvent) {
         rowClass += ' row-mega-boss';
     }
 
-    // 錯過次數與自動推算下次時間邏輯歸位
     var missedPrefix = '';
     var estNextSpawnHtml = ''; 
     
@@ -263,7 +275,6 @@ function renderRow(boss, nextSpawn, index, isEvent) {
         var missedCount = Math.floor(absDiff / cycleMs) + 1;
         missedPrefix = '<span style="font-size:15px; color:var(--danger); font-weight:bold; margin-right:8px;">(錯過 ' + missedCount + ' 次)</span>';
         
-        // 核心自動推算
         var estNextSpawnTime = nextSpawn + (missedCount * cycleMs);
         var estTimeString = new Date(estNextSpawnTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
         estNextSpawnHtml = '<div class="est-next-time">➔ 預估下次: ' + estTimeString + '</div>';
