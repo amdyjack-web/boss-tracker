@@ -26,7 +26,7 @@
         .status-ready { color: var(--warning); }
         .status-wait { color: var(--accent); }
         
-        /* 5分鐘內快出王的「整行發光」與「字體極大化」警示 */
+        /* 5分鐘內快出王的整行發光警示 */
         .row-danger {
             background: rgba(239, 68, 68, 0.15) !important; 
             border-left: 5px solid var(--danger) !important; 
@@ -43,7 +43,7 @@
             to { opacity: 1; filter: drop-shadow(0 0 8px rgba(239,68,68,0.8)); }
         }
 
-        /* 超級大王專屬特殊標註樣式 */
+        /* 超級大王專屬特殊標註 */
         .row-mega-boss {
             border-left: 5px solid var(--event); 
             background: rgba(139, 92, 246, 0.05); 
@@ -88,7 +88,7 @@
         <div id="event-boss-list"></div>
     </div>
     
-    <div class="section-title">野外首領 (快重生/超時10分內置頂 ➡️ 其次正常倒數中)</div>
+    <div class="section-title">野外首領 (快重生/超時10分內置頂 ➡️ 下方接續正常)</div>
     <div class="grid-header">
         <div>首領名稱</div><div>預計重生</div><div>倒數計時</div><div>操作選項</div>
     </div>
@@ -154,17 +154,15 @@ var remoteWildData = {};
 var remoteEventData = {};
 var remoteFixedData = {};
 
-// 資料庫即時連線監聽器 
 database.ref('wild_bosses').on('value', function(snapshot) { remoteWildData = snapshot.val() || {}; render(); });
 database.ref('event_bosses').on('value', function(snapshot) { remoteEventData = snapshot.val() || {}; render(); });
 database.ref('fixed_bosses').on('value', function(snapshot) { remoteFixedData = snapshot.val() || {}; checkResetLogic(); render(); });
 
-// 每 10 秒自動檢查一次重置與維修清空
 setInterval(function() {
     try {
         checkResetLogic();
     } catch(e) {
-        console.log("重置防呆檢查中: ", e);
+        console.log("重置檢查暫時異常: ", e);
     }
 }, 10000);
 
@@ -180,15 +178,14 @@ function checkResetLogic() {
         localStorage.setItem('last_fixed_reset_date', todayStr);
     }
     
-    // 2. 🧹 每週三凌晨 05:00 維修清空野王與活動王時間表
+    // 2. 每週三凌晨 05點 到 06點 之間（now.getHours() === 5）才會觸發一次性重置清空
     var lastWedReset = localStorage.getItem('last_wed_reset_week');
     var currentWeekId = now.getFullYear() + "-W" + getWeekNumber(now);
     
-    if (now.getDay() === 3 && now.getHours() >= 5 && lastWedReset !== currentWeekId) {
+    if (now.getDay() === 3 && now.getHours() === 5 && lastWedReset !== currentWeekId) {
         database.ref('wild_bosses').remove();  
         database.ref('event_bosses').remove(); 
         localStorage.setItem('last_wed_reset_week', currentWeekId);
-        console.log("🧹 觸發每週三凌晨 05:00 維修設定：時間表已清空！");
     }
 }
 
@@ -245,11 +242,11 @@ function renderRow(boss, nextSpawn, index, isEvent) {
         rowClass += ' row-mega-boss';
     }
 
-    // 👑 紅色粗體過次數
+    // 紅色粗體顯示錯過次數
     var missedPrefix = '';
     if (nextSpawn !== 0 && isOver) {
         var missedCount = Math.floor(absDiff / (boss.cycle * 60000)) + 1;
-        missedPrefix = '<span style="font-size:15px; color:var(--danger); font-weight:bold; margin-right:8px;">(過 ' + missedCount + ' 次)</span>';
+        missedPrefix = '<span style="font-size:15px; color:var(--danger); font-weight:bold; margin-right:8px;">(錯過 ' + missedCount + ' 次)</span>';
     }
 
     if (nextSpawn === 0) {
@@ -304,12 +301,12 @@ function render() {
         var diffA = a.nextSpawn - now;
         var diffB = b.nextSpawn - now;
 
-        //  優先大區劃分（超時置頂排序）
+        // (超時10分內留頂＋正常倒數由小到大）
         var getPriorityScore = function(diff) {
-            if (diff > 0 && diff <= 300000) return 0;   // 【大區 0】剩 5 分鐘內快重生（紅字閃爍，絕對最頂）
-            if (diff >= -600000 && diff <= 0) return 1;  // 【大區 1】超時 10 分鐘內（黃字，直接插隊在紅字下面，比綠字高！）
-            if (diff > 300000) return 2;                // 【大區 2】其餘正常倒數中（綠字，倒數小到大）
-            return 3;                                   // 【大區 3】過期下沉老舊區
+            if (diff > 0 && diff <= 300000) return 0;   // 【階級 0】剩 5 分鐘內快重生（紅字發光列）
+            if (diff >= -600000 && diff <= 0) return 1;  // 【階級 1】超時 10 分鐘內停留區（黃字緊咬在紅字正下方）
+            if (diff > 300000) return 2;                // 【階級 2】其餘正常倒數中（綠字，倒數小到大精準排列）
+            return 3;                                   // 【階級 3】超時大於 10 分鐘下沉老舊王（跌到綠字王下方）
         };
 
         var scoreA = getPriorityScore(diffA);
@@ -320,11 +317,11 @@ function render() {
         }
 
         if (scoreA === 0 || scoreA === 2) {
-            // 倒數區：最快出生的（時間戳記小的）排在上面
+            // 倒數綠字與紅字大區：依照「倒數小到大（越快重生的王排上面）」精密排序
             return diffA - diffB;
         }
         if (scoreA === 1 || scoreA === 3) {
-            // 超時區：剛超時的（負得少、秒數短的）排在上面
+            // 超時黃字大區（剛超時 10 分內以及過期區）：剛超時的（秒數短、負得少的）排在最上面！
             return b.nextSpawn - a.nextSpawn;
         }
         return 0;
