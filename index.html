@@ -26,7 +26,7 @@
         .status-ready { color: var(--warning); }
         .status-wait { color: var(--accent); }
         
-        /* 5分鐘內快出王的「整行發光」與「字體極大化 nudge」警示 */
+        /* 5分鐘內快出王的「整行發光」與「字體極大化」警示 */
         .row-danger {
             background: rgba(239, 68, 68, 0.15) !important; 
             border-left: 5px solid var(--danger) !important; 
@@ -77,7 +77,7 @@
 
 <div class="container">
     <div style="text-align: center; color: var(--gray); margin-bottom: 20px; font-weight: bold; color: var(--warning); font-size: 18px;">
-        📢 BOSS 狩獵管理平台 
+        📢 BOSS 狩獵管理平台 📢
     </div>
 
     <div id="event-section">
@@ -88,7 +88,7 @@
         <div id="event-boss-list"></div>
     </div>
     
-    <div class="section-title">野外首領 (快重生置頂 ➡️ 其次超時10分內停留)</div>
+    <div class="section-title">野外首領 (快重生/超時10分內置頂 ➡️ 其次正常倒數中)</div>
     <div class="grid-header">
         <div>首領名稱</div><div>預計重生</div><div>倒數計時</div><div>操作選項</div>
     </div>
@@ -121,12 +121,12 @@ var database = firebase.database();
 var EVENT_END_DATE = new Date("2026-05-06T00:00:00").getTime();
 
 var wildConfig = [
-    { name: "伊弗利特", cycle: 120 },  { name: "不死鳥", cycle: 480 }, { name: "大腳瑪幽", cycle: 180 },
+    { name: "伊弗利特", cycle: 120 }, { name: "不死鳥", cycle: 480 }, { name: "大腳瑪幽", cycle: 180 },
     { name: "綠王", cycle: 120 }, { name: "紅王", cycle: 120 }, { name: "巨型蠕蟲", cycle: 120 },
     { name: "四色", cycle: 120 }, { name: "86飛龍上", cycle: 120 }, { name: "86飛龍下", cycle: 120 }, { name: "83飛龍", cycle: 180 },
     { name: "85飛龍", cycle: 180 }, { name: "大黑長者", cycle: 180 }, { name: "巨大飛龍", cycle: 360 },
     { name: "強盜頭目", cycle: 180 }, { name: "巨大鱷魚", cycle: 180 },
-    { name: "守護螞蟻", cycle: 210 },  { name: "死亡騎士", cycle: 240 },{ name: "樹精", cycle: 180 },
+    { name: "守護螞蟻", cycle: 210 }, { name: "死亡騎士", cycle: 240 }, { name: "樹精", cycle: 180 },
     { name: "蜘蛛", cycle: 240 }, { name: "奈克諾斯", cycle: 240 }, { name: "烏勒庫斯", cycle: 360 },
     { name: "暗黑大將軍貝里斯", cycle: 360 }, { name: "賽尼斯分身", cycle: 180 },
     { name: "卡司特", cycle: 450 }, { name: "變形怪首領", cycle: 210 },
@@ -154,15 +154,17 @@ var remoteWildData = {};
 var remoteEventData = {};
 var remoteFixedData = {};
 
+// 資料庫即時連線監聽器 
 database.ref('wild_bosses').on('value', function(snapshot) { remoteWildData = snapshot.val() || {}; render(); });
 database.ref('event_bosses').on('value', function(snapshot) { remoteEventData = snapshot.val() || {}; render(); });
-database.ref('fixed_bosses').on('value', function(snapshot) { remoteFixedData = snapshot.val() || {}; checkResetLogic(); });
+database.ref('fixed_bosses').on('value', function(snapshot) { remoteFixedData = snapshot.val() || {}; checkResetLogic(); render(); });
 
+// 每 10 秒自動檢查一次重置與維修清空
 setInterval(function() {
     try {
         checkResetLogic();
     } catch(e) {
-        console.log("重置檢查暫時異常: ", e);
+        console.log("重置防呆檢查中: ", e);
     }
 }, 10000);
 
@@ -171,14 +173,14 @@ function checkResetLogic() {
     var todayStr = now.getFullYear() + "-" + (now.getMonth()+1) + "-" + now.getDate();
     var resetTimeToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 5, 0, 0).getTime();
     
-    // 1. 每日凌晨 05:00 固定王標記重置
+    // 1. 每日凌晨 05:00 固定王重置
     var lastFixedReset = localStorage.getItem('last_fixed_reset_date');
     if (now.getTime() >= resetTimeToday && lastFixedReset !== todayStr) {
         database.ref('fixed_bosses').remove();
         localStorage.setItem('last_fixed_reset_date', todayStr);
     }
     
-    // 2. 每週三凌晨 05:00 維修全自動抹除野王與活動王時間
+    // 2. 🧹 每週三凌晨 05:00 維修清空野王與活動王時間表
     var lastWedReset = localStorage.getItem('last_wed_reset_week');
     var currentWeekId = now.getFullYear() + "-W" + getWeekNumber(now);
     
@@ -186,7 +188,7 @@ function checkResetLogic() {
         database.ref('wild_bosses').remove();  
         database.ref('event_bosses').remove(); 
         localStorage.setItem('last_wed_reset_week', currentWeekId);
-        console.log("🧹 觸發每週三凌晨 05:00 維修設定：已自動抹除所有野王紀錄！");
+        console.log("🧹 觸發每週三凌晨 05:00 維修設定：時間表已清空！");
     }
 }
 
@@ -243,11 +245,11 @@ function renderRow(boss, nextSpawn, index, isEvent) {
         rowClass += ' row-mega-boss';
     }
 
-    // 計算過王的次數邏輯
+    // 👑 紅色粗體過次數
     var missedPrefix = '';
     if (nextSpawn !== 0 && isOver) {
         var missedCount = Math.floor(absDiff / (boss.cycle * 60000)) + 1;
-        missedPrefix = '<span style="font-size:15px; color:var(--danger); margin-right:8px; font-weight:bold;">(過 ' + missedCount + ' 次)</span>';
+        missedPrefix = '<span style="font-size:15px; color:var(--danger); font-weight:bold; margin-right:8px;">(過 ' + missedCount + ' 次)</span>';
     }
 
     if (nextSpawn === 0) {
@@ -302,11 +304,12 @@ function render() {
         var diffA = a.nextSpawn - now;
         var diffB = b.nextSpawn - now;
 
+        //  優先大區劃分（超時置頂排序）
         var getPriorityScore = function(diff) {
-            if (diff > 0 && diff <= 300000) return 0;   // 剩 5 分鐘內 (紅色發光)
-            if (diff >= -600000 && diff <= 0) return 1;  // 超時 10 分鐘內停留區 (黃字)
-            if (diff > 300000) return 2;                // 正常倒數中 (綠字)
-            return 3;                                   // 超時超過 10 分鐘下沉區
+            if (diff > 0 && diff <= 300000) return 0;   // 【大區 0】剩 5 分鐘內快重生（紅字閃爍，絕對最頂）
+            if (diff >= -600000 && diff <= 0) return 1;  // 【大區 1】超時 10 分鐘內（黃字，直接插隊在紅字下面，比綠字高！）
+            if (diff > 300000) return 2;                // 【大區 2】其餘正常倒數中（綠字，倒數小到大）
+            return 3;                                   // 【大區 3】過期下沉老舊區
         };
 
         var scoreA = getPriorityScore(diffA);
@@ -316,11 +319,13 @@ function render() {
             return scoreA - scoreB;
         }
 
-        if (scoreA === 0 || scoreA === 1) {
+        if (scoreA === 0 || scoreA === 2) {
+            // 倒數區：最快出生的（時間戳記小的）排在上面
             return diffA - diffB;
         }
-        if (scoreA === 2 || scoreA === 3) {
-            return b.nextSpawn - a.nextSpawn; 
+        if (scoreA === 1 || scoreA === 3) {
+            // 超時區：剛超時的（負得少、秒數短的）排在上面
+            return b.nextSpawn - a.nextSpawn;
         }
         return 0;
     });
