@@ -15,12 +15,13 @@
         .section-title { font-size: 20px; font-weight: bold; padding: 10px; border-left: 4px solid var(--accent); margin: 20px 0 10px; background: rgba(255,255,255,0.05); }
         .event-title { border-left-color: var(--event); color: var(--event); }
         
-        .grid-header { display: grid; grid-template-columns: 1.8fr 1.2fr 1.5fr 3fr; padding: 10px 15px; color: var(--gray); font-weight: bold; border-bottom: 2px solid #334155; font-size: 15px; }
-        .boss-row { display: grid; grid-template-columns: 1.8fr 1.2fr 1.5fr 3fr; padding: 14px 15px; border-bottom: 1px solid #334155; align-items: center; transition: 0.3s; }
+        .grid-header { display: grid; grid-template-columns: 1.5fr 2.3fr 1.5fr 2.7fr; padding: 10px 15px; color: var(--gray); font-weight: bold; border-bottom: 2px solid #334155; font-size: 15px; }
+        .boss-row { display: grid; grid-template-columns: 1.5fr 2.3fr 1.5fr 2.7fr; padding: 14px 15px; border-bottom: 1px solid #334155; align-items: center; transition: 0.3s; }
         .boss-row:hover { background: rgba(255,255,255,0.03); }
         
         .boss-name { font-weight: bold; color: var(--info); font-size: 17px; }
-        .next-time { font-family: monospace; color: #94a3b8; font-size: 16px; }
+        .next-time { font-family: monospace; color: #94a3b8; font-size: 15px; line-height: 1.4; }
+        .est-next-time { color: #f472b6; font-weight: bold; font-size: 14px; }
         
         .countdown { font-family: monospace; font-weight: bold; font-size: 22px; }
         .status-ready { color: var(--warning); }
@@ -70,6 +71,14 @@
         button.time-btn { flex: none; border-color: var(--fixed); color: var(--fixed); min-width: 75px; margin-bottom: 2px; font-size: 13px; }
         button.time-btn.done { border-color: var(--gray); color: var(--gray); background: rgba(255,255,255,0.1); }
         
+        /* 固定王專用修復按鈕樣式 */
+        .fixed-repair-btn {
+            background: rgba(244, 114, 182, 0.1); border: 1px solid var(--fixed); color: var(--fixed);
+            padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; transition: 0.2s; font-weight: bold;
+            display: inline-block; margin-left: 15px; vertical-align: middle;
+        }
+        .fixed-repair-btn:hover { background: var(--fixed); color: white; }
+        
         #event-section { display: none; }
     </style>
 </head>
@@ -83,14 +92,14 @@
     <div id="event-section">
         <div class="section-title event-title">🔥 限時活動 (至 5/6 止)</div>
         <div class="grid-header">
-            <div>活動首領</div><div>預計重生</div><div>倒數計時</div><div>操作</div>
+            <div>活動首領</div><div>預計重生 / 下次重生</div><div>倒數計時</div><div>操作</div>
         </div>
         <div id="event-boss-list"></div>
     </div>
     
     <div class="section-title">野外首領 (快重生/超時10分內置頂 ➡️ 其次正常倒數中)</div>
     <div class="grid-header">
-        <div>首領名稱</div><div>預計重生</div><div>倒數計時</div><div>操作選項</div>
+        <div>首領名稱</div><div>預計重生 / 下次重生</div><div>倒數計時</div><div>操作選項</div>
     </div>
     <div id="wild-boss-list"></div>
 
@@ -153,10 +162,12 @@ var fixedConfig = [
 var remoteWildData = {};
 var remoteEventData = {};
 var remoteFixedData = {};
+var cloudResetStatus = {}; 
 
 database.ref('wild_bosses').on('value', function(snapshot) { remoteWildData = snapshot.val() || {}; render(); });
 database.ref('event_bosses').on('value', function(snapshot) { remoteEventData = snapshot.val() || {}; render(); });
-database.ref('fixed_bosses').on('value', function(snapshot) { remoteFixedData = snapshot.val() || {}; checkResetLogic(); render(); });
+database.ref('fixed_bosses').on('value', function(snapshot) { remoteFixedData = snapshot.val() || {}; render(); });
+database.ref('reset_status').on('value', function(snapshot) { cloudResetStatus = snapshot.val() || {}; checkResetLogic(); });
 
 setInterval(function() {
     try {
@@ -171,21 +182,18 @@ function checkResetLogic() {
     var todayStr = now.getFullYear() + "-" + (now.getMonth()+1) + "-" + now.getDate();
     var resetTimeToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 5, 0, 0).getTime();
     
-    // 1. 每日凌晨 05:00 固定王重置
-    var lastFixedReset = localStorage.getItem('last_fixed_reset_date');
-    if (now.getTime() >= resetTimeToday && lastFixedReset !== todayStr) {
+    // 1. 每日凌晨 05:00 固定王重置 (同步雲端鎖)
+    if (now.getTime() >= resetTimeToday && cloudResetStatus.last_fixed_reset_date !== todayStr) {
         database.ref('fixed_bosses').remove();
-        localStorage.setItem('last_fixed_reset_date', todayStr);
+        database.ref('reset_status/last_fixed_reset_date').set(todayStr);
     }
     
-    // 2. 每週三凌晨 05點 到 06點 之間（now.getHours() === 5）才會觸發一次性重置清空
-    var lastWedReset = localStorage.getItem('last_wed_reset_week');
+    // 2. 每週三凌晨 05點 到 06點 之間才會觸發清理
     var currentWeekId = now.getFullYear() + "-W" + getWeekNumber(now);
-    
-    if (now.getDay() === 3 && now.getHours() === 5 && lastWedReset !== currentWeekId) {
+    if (now.getDay() === 3 && now.getHours() === 5 && cloudResetStatus.last_wed_reset_week !== currentWeekId) {
         database.ref('wild_bosses').remove();  
         database.ref('event_bosses').remove(); 
-        localStorage.setItem('last_wed_reset_week', currentWeekId);
+        database.ref('reset_status/last_wed_reset_week').set(currentWeekId);
     }
 }
 
@@ -242,11 +250,19 @@ function renderRow(boss, nextSpawn, index, isEvent) {
         rowClass += ' row-mega-boss';
     }
 
-    // 紅色粗體顯示錯過次數
+    // 錯過次數與自動推算下次時間邏輯歸位
     var missedPrefix = '';
+    var estNextSpawnHtml = ''; 
+    
     if (nextSpawn !== 0 && isOver) {
-        var missedCount = Math.floor(absDiff / (boss.cycle * 60000)) + 1;
+        var cycleMs = boss.cycle * 60000;
+        var missedCount = Math.floor(absDiff / cycleMs) + 1;
         missedPrefix = '<span style="font-size:15px; color:var(--danger); font-weight:bold; margin-right:8px;">(錯過 ' + missedCount + ' 次)</span>';
+        
+        // 核心自動推算
+        var estNextSpawnTime = nextSpawn + (missedCount * cycleMs);
+        var estTimeString = new Date(estNextSpawnTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        estNextSpawnHtml = '<div class="est-next-time">➔ 預估下次: ' + estTimeString + '</div>';
     }
 
     if (nextSpawn === 0) {
@@ -263,7 +279,10 @@ function renderRow(boss, nextSpawn, index, isEvent) {
     
     return '<div class="boss-row ' + rowClass + '">' +
         '<div class="' + nameClass + '">' + displayName + ' <span style="font-size:11px; color:var(--gray);">(' + (boss.cycle/60) + 'H)</span></div>' +
-        '<div class="next-time">' + (nextSpawn === 0 ? '---' : new Date(nextSpawn).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})) + '</div>' +
+        '<div class="next-time">' + 
+            (nextSpawn === 0 ? '---' : new Date(nextSpawn).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})) + 
+            estNextSpawnHtml + 
+        '</div>' +
         '<div class="countdown ' + statusClass + '">' + missedPrefix + (nextSpawn === 0 ? '--:--:--' : (isOver ? '已超過 ' : '') + h + ':' + m + ':' + s) + '</div>' +
         '<div class="btn-group">' +
             '<button onclick="handleAction(\'kill\', ' + index + ', ' + isEvent + ')">擊殺</button>' +
@@ -301,12 +320,11 @@ function render() {
         var diffA = a.nextSpawn - now;
         var diffB = b.nextSpawn - now;
 
-        // (超時10分內留頂＋正常倒數由小到大）
         var getPriorityScore = function(diff) {
-            if (diff > 0 && diff <= 300000) return 0;   // 【階級 0】剩 5 分鐘內快重生（紅字發光列）
-            if (diff >= -600000 && diff <= 0) return 1;  // 【階級 1】超時 10 分鐘內停留區（黃字緊咬在紅字正下方）
-            if (diff > 300000) return 2;                // 【階級 2】其餘正常倒數中（綠字，倒數小到大精準排列）
-            return 3;                                   // 【階級 3】超時大於 10 分鐘下沉老舊王（跌到綠字王下方）
+            if (diff > 0 && diff <= 300000) return 0;   
+            if (diff >= -600000 && diff <= 0) return 1;  
+            if (diff > 300000) return 2;                
+            return 3;                                   
         };
 
         var scoreA = getPriorityScore(diffA);
@@ -317,11 +335,9 @@ function render() {
         }
 
         if (scoreA === 0 || scoreA === 2) {
-            // 倒數綠字與紅字大區：依照「倒數小到大（越快重生的王排上面）」精密排序
             return diffA - diffB;
         }
         if (scoreA === 1 || scoreA === 3) {
-            // 超時黃字大區（剛超時 10 分內以及過期區）：剛超時的（秒數短、負得少的）排在最上面！
             return b.nextSpawn - a.nextSpawn;
         }
         return 0;
