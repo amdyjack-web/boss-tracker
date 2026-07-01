@@ -188,12 +188,16 @@ function checkResetLogic() {
         database.ref('reset_status/last_fixed_reset_date').set(todayStr);
     }
     
-    // 2. 每週三凌晨 05點 到 06點 之間才會觸發清理
-    var currentWeekId = now.getFullYear() + "-W" + getWeekNumber(now);
-    if (now.getDay() === 3 && now.getHours() === 5 && cloudResetStatus.last_wed_reset_week !== currentWeekId) {
+    // 2. 每週三維修清理安全重置鎖
+    var lastWedReset = localStorage.getItem('last_wed_reset_week');
+    var currentWeekId = localDate.getFullYear() + "-W" + getWeekNumber(localDate);
+    
+    // 安全限制：必須「台灣時間週三」且「正好在清晨 5 點這一個小時內」且「本週還沒清空過」才會執行
+    if (localDate.getDay() === 3 && currentTaiwanHour === 5 && lastWedReset !== currentWeekId) {
         database.ref('wild_bosses').remove();  
         database.ref('event_bosses').remove(); 
-        database.ref('reset_status/last_wed_reset_week').set(currentWeekId);
+        localStorage.setItem('last_wed_reset_week', currentWeekId);
+        console.log("🧹 本地台灣時間清晨 05:00 觸發維修清空成功！");
     }
 }
 
