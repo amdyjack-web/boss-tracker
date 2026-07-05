@@ -71,14 +71,6 @@
         button.time-btn { flex: none; border-color: var(--fixed); color: var(--fixed); min-width: 75px; margin-bottom: 2px; font-size: 13px; }
         button.time-btn.done { border-color: var(--gray); color: var(--gray); background: rgba(255,255,255,0.1); }
         
-        /* 固定王專用修復按鈕樣式 */
-        .fixed-repair-btn {
-            background: rgba(244, 114, 182, 0.1); border: 1px solid var(--fixed); color: var(--fixed);
-            padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; transition: 0.2s; font-weight: bold;
-            display: inline-block; margin-left: 15px; vertical-align: middle;
-        }
-        .fixed-repair-btn:hover { background: var(--fixed); color: white; }
-        
         #event-section { display: none; }
     </style>
 </head>
@@ -132,7 +124,7 @@ var EVENT_END_DATE = new Date("2026-05-06T00:00:00").getTime();
 var wildConfig = [
     { name: "伊弗利特", cycle: 120 }, { name: "不死鳥", cycle: 480 }, { name: "大腳瑪幽", cycle: 180 },
     { name: "綠王", cycle: 120 }, { name: "紅王", cycle: 120 }, { name: "巨型蠕蟲", cycle: 120 },
-    { name: "四色", cycle: 120 }, { name: "86飛龍上", cycle: 120 }, { name: "86飛龍下", cycle: 120 }, { name: "83飛龍", cycle: 180 },
+    { name: "四色", cycle: 120 }, { name: "86飛野上", cycle: 120 }, { name: "86飛野下", cycle: 120 }, { name: "83飛龍", cycle: 180 },
     { name: "85飛龍", cycle: 180 }, { name: "大黑長者", cycle: 180 }, { name: "巨大飛龍", cycle: 360 },
     { name: "強盜頭目", cycle: 180 }, { name: "巨大鱷魚", cycle: 180 },
     { name: "守護螞蟻", cycle: 210 }, { name: "死亡騎士", cycle: 240 }, { name: "樹精", cycle: 180 },
@@ -180,7 +172,7 @@ setInterval(function() {
 function checkResetLogic() {
     var now = new Date();
     
-    // 使用絕對台灣時間 (UTC+8) 的小時與分鐘計算
+    // 解決時區不穩定Bug：使用絕對台灣時間 (UTC+8) 的小時與分鐘計算
     var localTimeMs = now.getTime() + (now.getTimezoneOffset() * 60000) + (8 * 3600000);
     var localDate = new Date(localTimeMs);
     
@@ -193,7 +185,6 @@ function checkResetLogic() {
         database.ref('fixed_bosses').remove();
         database.ref('reset_status/last_fixed_reset_date').set(todayStr);
     }
-
 }
 
 function getWeekNumber(d) {
@@ -212,7 +203,7 @@ function handleAction(type, index, isEvent) {
     if (type === 'kill') {
         database.ref(path).set(now.getTime() + (config.cycle * 60000));
     } else if (type === 'back') {
-        // 補登功能：直接彈窗輸入精準時間（格式 14:20 或 05:30）
+        // 補登功能：輸入精準時間（格式 14:20 或 05:30）
         var killTimeStr = prompt("[" + config.name + "] 請輸入擊殺時間\n格式範例 -> 14:20 或 05:30", "");
         if (killTimeStr && killTimeStr.includes(":")) {
             var parts = killTimeStr.split(":");
@@ -220,15 +211,10 @@ function handleAction(type, index, isEvent) {
             var min = parseInt(parts[1], 10);
             
             if (!isNaN(hr) && !isNaN(min) && hr >= 0 && hr < 24 && min >= 0 && min < 60) {
-                // 以今天的年、月、日為基準建立擊殺時間
                 var targetKillDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hr, min, 0);
-                
-                // 如果輸入的時間比現在還大，代表可能是昨天晚上的跨夜時間，自動往前減一天
                 if (targetKillDate.getTime() > now.getTime()) {
                     targetKillDate.setDate(targetKillDate.getDate() - 1);
                 }
-                
-                // 預計重生時間 = 擊殺時間 + 週期
                 database.ref(path).set(targetKillDate.getTime() + (config.cycle * 60000));
             } else {
                 alert("時間格式輸入錯誤，請輸入 00:00 ~ 23:59 之間的時間！");
@@ -243,6 +229,10 @@ function handleAction(type, index, isEvent) {
         if (currentNextSpawn !== 0) database.ref(path).set(currentNextSpawn - (config.cycle * 60000));
     }
 }
+
+var remoteWildData = {};
+var remoteEventData = {};
+var remoteFixedData = {};
 
 function toggleFixed(name, time) {
     var key = (name + "_" + time).replace(/[.#$/[\]]/g, "_");
@@ -335,10 +325,10 @@ function render() {
         var diffB = b.nextSpawn - now;
 
         var getPriorityScore = function(diff) {
-            if (diff > 0 && diff <= 300000) return 0;   
-            if (diff >= -600000 && diff <= 0) return 1;  
-            if (diff > 300000) return 2;                
-            return 3;                                   
+            if (diff > 0 && diff <= 300000) return 0;   // 5分內快出紅字置頂
+            if (diff >= -600000 && diff <= 0) return 1;  // 超時10分內黃字次置頂
+            if (diff > 300000) return 2;                // 其餘正常倒數中（綠字）
+            return 3;                                   // 超時大於10分下沉區
         };
 
         var scoreA = getPriorityScore(diffA);
@@ -349,10 +339,20 @@ function render() {
         }
 
         if (scoreA === 0 || scoreA === 2) {
+            // 倒數大區（階級 0 與 2）：依照「倒數時間由小到大」
             return diffA - diffB;
         }
         if (scoreA === 1 || scoreA === 3) {
-            return b.nextSpawn - a.nextSpawn;
+            // 超時黃字大區（階級 1 與 3）【預估下次重生時間】從小到大（近到遠）排列！
+            var cycleMsA = a.config.cycle * 60000;
+            var missedA = Math.floor(Math.abs(diffA) / cycleMsA) + 1;
+            var estNextSpawnA = a.nextSpawn + (missedA * cycleMsA);
+
+            var cycleMsB = b.config.cycle * 60000;
+            var missedB = Math.floor(Math.abs(diffB) / cycleMsB) + 1;
+            var estNextSpawnB = b.nextSpawn + (missedB * cycleMsB);
+
+            return estNextSpawnA - estNextSpawnB;
         }
         return 0;
     });
@@ -372,7 +372,7 @@ function render() {
                 var isDone = remoteFixedData[key] === true;
                 return '<button class="time-btn ' + (isDone ? 'done' : '') + '" onclick="toggleFixed(\'' + f.name + '\', \'' + t + '\')">' + (isDone ? '✓ ' : '') + t + '</button>';
             }).join(' ');
-            return '<div class="boss-row" style="grid-template-columns: 2fr 3fr 1.2fr;">' +
+            return '<div class="boss-row" style="grid-template-columns: 2fr 3fr 1.2fr;\">' +
                 '<div class="boss-name" style="color:var(--fixed); font-size:16px;">' + f.name + '</div>' +
                 '<div class="btn-group">' + timeBtns + '</div>' +
                 '<div style="color:var(--gray); font-size:12px;">' + (f.note || '點擊時段紀錄') + '</div>' +
