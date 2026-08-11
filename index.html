@@ -11,6 +11,26 @@
             --accent: #10b981; --warning: #fbbf24; --info: #38bdf8; --fixed: #f472b6; --danger: #ef4444; --event: #8b5cf6; --gray: #64748b;
         }
         body { background: var(--bg); color: var(--text); font-family: sans-serif; padding: 20px; font-size: 15px; }
+        
+        
+        .auth-hidden { display: none !important; }
+        
+        
+        #auth-overlay {
+            max-width: 400px; margin: 100px auto; background: var(--card); border-radius: 12px;
+            padding: 30px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid #334155;
+        }
+        #auth-overlay input {
+            width: 80%; padding: 10px; margin: 15px 0; border-radius: 6px;
+            border: 1px solid #334155; background: #0f172a; color: #fff;
+            text-align: center; font-size: 16px; outline: none;
+        }
+        #auth-overlay button {
+            width: 85%; padding: 10px; background: var(--accent); color: white;
+            border: none; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: bold;
+        }
+
         .container { max-width: 1150px; margin: 0 auto; background: var(--card); border-radius: 12px; padding: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         .section-title { font-size: 20px; font-weight: bold; padding: 10px; border-left: 4px solid var(--accent); margin: 20px 0 10px; background: rgba(255,255,255,0.05); }
         .event-title { border-left-color: var(--event); color: var(--event); }
@@ -27,7 +47,6 @@
         .status-ready { color: var(--warning); }
         .status-wait { color: var(--accent); }
         
-        /* 5分鐘內快出王的整行發光警示 */
         .row-danger {
             background: rgba(239, 68, 68, 0.15) !important; 
             border-left: 5px solid var(--danger) !important; 
@@ -44,7 +63,6 @@
             to { opacity: 1; filter: drop-shadow(0 0 8px rgba(239,68,68,0.8)); }
         }
 
-        /* 超級大王專屬特殊標註 */
         .row-mega-boss {
             border-left: 5px solid var(--event); 
             background: rgba(139, 92, 246, 0.05); 
@@ -71,13 +89,32 @@
         button.time-btn { flex: none; border-color: var(--fixed); color: var(--fixed); min-width: 75px; margin-bottom: 2px; font-size: 13px; }
         button.time-btn.done { border-color: var(--gray); color: var(--gray); background: rgba(255,255,255,0.1); }
         
+        .sound-btn {
+            position: fixed; top: 15px; right: 20px; z-index: 999;
+            background: #1e293b; border: 1px solid #38bdf8; color: #38bdf8;
+            padding: 8px 15px; border-radius: 20px; font-size: 13px; cursor: pointer;
+        }
+        .sound-btn.muted { border-color: var(--gray); color: var(--gray); }
+        
         #event-section { display: none; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div style="text-align: center; color: var(--gray); margin-bottom: 20px; font-weight: bold; color: var(--warning); font-size: 18px;">
+<!-- 未驗證輸入卡片 -->
+<div id="auth-overlay">
+    <h3 style="color: var(--warning); margin-bottom: 10px;">🔒 請輸入通行暗碼</h3>
+    <p style="color: var(--gray); font-size: 13px; margin-bottom: 15px;">此平台受權限保護，請驗證身份以繼續操作。</p>
+    <input type="password" id="auth-input" placeholder="請輸入暗碼" onkeypress="handleKeyPress(event)">
+    <br>
+    <button onclick="submitAuth()">進入平台</button>
+</div>
+
+<!-- 主平台介面（預設隱藏） -->
+<button id="toggle-sound-btn" class="sound-btn auth-hidden" onclick="toggleSound()">🔊 提示音：開啟</button>
+
+<div id="main-container" class="container auth-hidden">
+    <div style="text-align: center; color: var(--gray); margin-bottom: 20px; font-weight: bold; color: var(--warning); font-size: 18px; user-select: none;">
         📢 BOSS 狩獵管理平台 📢
     </div>
 
@@ -103,6 +140,121 @@
 </div>
 
 <script>
+var audioCtx = null;
+var soundEnabled = true;
+var lastBeepTime = 0;
+
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+}
+
+function playBeep(type) {
+    if (!soundEnabled) return;
+    try {
+        initAudio();
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+
+        var now = audioCtx.currentTime;
+
+        if (type === 'final') {
+            [0, 0.15, 0.3].forEach(function(offset) {
+                var osc = audioCtx.createOscillator();
+                var gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.value = 1800;
+                gain.gain.setValueAtTime(0.3, now + offset);
+                gain.gain.exponentialRampToValueAtTime(0.00001, now + offset + 0.1);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now + offset);
+                osc.stop(now + offset + 0.1);
+            });
+        } else {
+            [0, 0.08].forEach(function(offset) {
+                var osc = audioCtx.createOscillator();
+                var gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.value = 1350;
+                gain.gain.setValueAtTime(0.25, now + offset);
+                gain.gain.exponentialRampToValueAtTime(0.00001, now + offset + 0.06);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now + offset);
+                osc.stop(now + offset + 0.06);
+            });
+        }
+    } catch(e) {}
+}
+
+function toggleSound() {
+    soundEnabled = !soundEnabled;
+    var btn = document.getElementById('toggle-sound-btn');
+    if (soundEnabled) {
+        btn.innerHTML = '🔊 提示音：開啟';
+        btn.classList.remove('muted');
+        playBeep('warning');
+    } else {
+        btn.innerHTML = '🔇 提示音：靜音';
+        btn.classList.add('muted');
+    }
+}
+
+document.body.addEventListener('click', function() { initAudio(); }, { once: true });
+
+var TARGET_HASH = 16679633;
+
+function computeFastHash(str) {
+    var hash = 0;
+    for (var i = 0; i < str.length; i++) {
+        hash = (hash << 5) - hash + str.charCodeAt(i);
+        hash |= 0;
+    }
+    return Math.abs(hash * 11 + 47);
+}
+
+function checkAuth() {
+    return localStorage.getItem("boss_auth_passed") === "true";
+}
+
+function submitAuth() {
+    var inputVal = document.getElementById("auth-input").value.trim();
+    if (computeFastHash(inputVal) === TARGET_HASH) {
+        localStorage.setItem("boss_auth_passed", "true");
+        updateDisplay();
+        render();
+    } else {
+        alert("暗碼錯誤！");
+        document.getElementById("auth-input").value = "";
+    }
+}
+
+function handleKeyPress(e) {
+    if (e.key === 'Enter') {
+        submitAuth();
+    }
+}
+
+function updateDisplay() {
+    var isAuthed = checkAuth();
+    var overlay = document.getElementById("auth-overlay");
+    var main = document.getElementById("main-container");
+    var soundBtn = document.getElementById("toggle-sound-btn");
+
+    if (isAuthed) {
+        if (overlay) overlay.style.display = "none";
+        if (main) main.classList.remove("auth-hidden");
+        if (soundBtn) soundBtn.classList.remove("auth-hidden");
+    } else {
+        if (overlay) overlay.style.display = "block";
+        if (main) main.classList.add("auth-hidden");
+        if (soundBtn) soundBtn.classList.add("auth-hidden");
+    }
+}
+
 var firebaseConfig = {
     apiKey: "AIzaSyAtoQ0h-0s9hZPOyIswNRgyp36V6iKvha0",
     authDomain: "boss-d6c8e.firebaseapp.com",
@@ -171,8 +323,6 @@ setInterval(function() {
 
 function checkResetLogic() {
     var now = new Date();
-    
-    // 解決時區不穩定Bug：使用絕對台灣時間 (UTC+8) 的小時與分鐘計算
     var localTimeMs = now.getTime() + (now.getTimezoneOffset() * 60000) + (8 * 3600000);
     var localDate = new Date(localTimeMs);
     
@@ -180,10 +330,18 @@ function checkResetLogic() {
     var resetTimeToday = new Date(localDate.getFullYear(), localDate.getMonth(), localDate.getDate(), 5, 0, 0).getTime();
     var currentTaiwanHour = localDate.getHours();
 
-    // 1. 每日凌晨 05:00 固定王重置 (同步雲端鎖)
     if (now.getTime() >= resetTimeToday && cloudResetStatus.last_fixed_reset_date !== todayStr) {
         database.ref('fixed_bosses').remove();
         database.ref('reset_status/last_fixed_reset_date').set(todayStr);
+    }
+    
+    var lastWedReset = localStorage.getItem('last_wed_reset_week');
+    var currentWeekId = localDate.getFullYear() + "-W" + getWeekNumber(localDate);
+    
+    if (localDate.getDay() === 3 && currentTaiwanHour === 5 && lastWedReset !== currentWeekId) {
+        database.ref('wild_bosses').remove();  
+        database.ref('event_bosses').remove(); 
+        localStorage.setItem('last_wed_reset_week', currentWeekId);
     }
 }
 
@@ -195,6 +353,8 @@ function getWeekNumber(d) {
 }
 
 function handleAction(type, index, isEvent) {
+    if (!checkAuth()) return;
+    
     var now = new Date();
     var config = isEvent ? eventConfig[0] : wildConfig[index];
     var path = isEvent ? 'event_decay/' + config.id : 'wild_bosses/' + index;
@@ -203,7 +363,6 @@ function handleAction(type, index, isEvent) {
     if (type === 'kill') {
         database.ref(path).set(now.getTime() + (config.cycle * 60000));
     } else if (type === 'back') {
-        // 補登功能：輸入精準時間（格式 14:20 或 05:30）
         var killTimeStr = prompt("[" + config.name + "] 請輸入擊殺時間\n格式範例 -> 14:20 或 05:30", "");
         if (killTimeStr && killTimeStr.includes(":")) {
             var parts = killTimeStr.split(":");
@@ -230,18 +389,18 @@ function handleAction(type, index, isEvent) {
     }
 }
 
-var remoteWildData = {};
-var remoteEventData = {};
-var remoteFixedData = {};
-
 function toggleFixed(name, time) {
+    if (!checkAuth()) return;
     var key = (name + "_" + time).replace(/[.#$/[\]]/g, "_");
     var currentState = remoteFixedData[key] === true;
     database.ref('fixed_bosses/' + key).set(!currentState);
 }
 
-function renderRow(boss, nextSpawn, index, isEvent) {
+function renderRow(boss, realNextSpawn, index, isEvent) {
+    if (!checkAuth()) return '';
     var now = new Date().getTime();
+    var nextSpawn = realNextSpawn;
+    
     var diff = nextSpawn - now;
     var isOver = diff < 0;
     var absDiff = Math.abs(diff);
@@ -249,6 +408,18 @@ function renderRow(boss, nextSpawn, index, isEvent) {
     var m = Math.floor((absDiff % 3600000) / 60000).toString().padStart(2, '0');
     var s = Math.floor((absDiff % 60000) / 1000).toString().padStart(2, '0');
     
+    if (nextSpawn !== 0 && diff > 0 && diff <= 10000) {
+        var currentSec = Math.floor(now / 1000);
+        if (currentSec !== lastBeepTime) {
+            lastBeepTime = currentSec;
+            if (diff <= 1000) {
+                playBeep('final');   
+            } else {
+                playBeep('warning'); 
+            }
+        }
+    }
+
     var statusClass = 'status-wait';
     var rowClass = '';
     
@@ -282,13 +453,16 @@ function renderRow(boss, nextSpawn, index, isEvent) {
     var displayName = isMegaBoss ? '👑 ' + boss.name : boss.name;
     var nameClass = isMegaBoss ? 'boss-name name-mega-boss' : 'boss-name';
     
+    var displayNextTime = nextSpawn === 0 ? '---' : new Date(nextSpawn).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    var displayCountdown = nextSpawn === 0 ? '--:--:--' : (isOver ? '已超過 ' : '') + h + ':' + m + ':' + s;
+
     return '<div class="boss-row ' + rowClass + '">' +
         '<div class="' + nameClass + '">' + displayName + ' <span style="font-size:11px; color:var(--gray);">(' + (boss.cycle/60) + 'H)</span></div>' +
         '<div class="next-time">' + 
-            (nextSpawn === 0 ? '---' : new Date(nextSpawn).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})) + 
+            displayNextTime + 
             estNextSpawnHtml + 
         '</div>' +
-        '<div class="countdown ' + statusClass + '">' + missedPrefix + (nextSpawn === 0 ? '--:--:--' : (isOver ? '已超過 ' : '') + h + ':' + m + ':' + s) + '</div>' +
+        '<div class="countdown ' + statusClass + '">' + missedPrefix + displayCountdown + '</div>' +
         '<div class="btn-group">' +
             '<button onclick="handleAction(\'kill\', ' + index + ', ' + isEvent + ')">擊殺</button>' +
             '<button class="back-btn" onclick="handleAction(\'back\', ' + index + ', ' + isEvent + ')">補登</button>' +
@@ -298,6 +472,12 @@ function renderRow(boss, nextSpawn, index, isEvent) {
 }
 
 function render() {
+    if (!checkAuth()) {
+        updateDisplay();
+        return;
+    }
+    updateDisplay();
+
     var now = new Date().getTime();
     
     var eventSection = document.getElementById('event-section');
@@ -313,22 +493,23 @@ function render() {
     }
     
     var sortedWildList = wildConfig.map(function(boss, i) {
-        return { config: boss, index: i, nextSpawn: remoteWildData[i] || 0 };
+        var realNext = remoteWildData[i] || 0;
+        return { config: boss, index: i, realNextSpawn: realNext, effectiveNextSpawn: realNext };
     });
 
     sortedWildList.sort(function(a, b) {
-        if (a.nextSpawn === 0 && b.nextSpawn !== 0) return 1;
-        if (a.nextSpawn !== 0 && b.nextSpawn === 0) return -1;
-        if (a.nextSpawn === 0 && b.nextSpawn === 0) return 0;
+        if (a.effectiveNextSpawn === 0 && b.effectiveNextSpawn !== 0) return 1;
+        if (a.effectiveNextSpawn !== 0 && b.effectiveNextSpawn === 0) return -1;
+        if (a.effectiveNextSpawn === 0 && b.effectiveNextSpawn === 0) return 0;
 
-        var diffA = a.nextSpawn - now;
-        var diffB = b.nextSpawn - now;
+        var diffA = a.effectiveNextSpawn - now;
+        var diffB = b.effectiveNextSpawn - now;
 
         var getPriorityScore = function(diff) {
-            if (diff > 0 && diff <= 300000) return 0;   // 5分內快出紅字置頂
-            if (diff >= -600000 && diff <= 0) return 1;  // 超時10分內黃字次置頂
-            if (diff > 300000) return 2;                // 其餘正常倒數中（綠字）
-            return 3;                                   // 超時大於10分下沉區
+            if (diff > 0 && diff <= 300000) return 0;   
+            if (diff >= -600000 && diff <= 0) return 1;  
+            if (diff > 300000) return 2;                
+            return 3;                                   
         };
 
         var scoreA = getPriorityScore(diffA);
@@ -339,18 +520,16 @@ function render() {
         }
 
         if (scoreA === 0 || scoreA === 2) {
-            // 倒數大區（階級 0 與 2）：依照「倒數時間由小到大」
             return diffA - diffB;
         }
         if (scoreA === 1 || scoreA === 3) {
-            // 超時黃字大區（階級 1 與 3）【預估下次重生時間】從小到大（近到遠）排列！
             var cycleMsA = a.config.cycle * 60000;
             var missedA = Math.floor(Math.abs(diffA) / cycleMsA) + 1;
-            var estNextSpawnA = a.nextSpawn + (missedA * cycleMsA);
+            var estNextSpawnA = a.effectiveNextSpawn + (missedA * cycleMsA);
 
             var cycleMsB = b.config.cycle * 60000;
             var missedB = Math.floor(Math.abs(diffB) / cycleMsB) + 1;
-            var estNextSpawnB = b.nextSpawn + (missedB * cycleMsB);
+            var estNextSpawnB = b.effectiveNextSpawn + (missedB * cycleMsB);
 
             return estNextSpawnA - estNextSpawnB;
         }
@@ -360,7 +539,7 @@ function render() {
     var wildContainer = document.getElementById('wild-boss-list');
     if (wildContainer) {
         wildContainer.innerHTML = sortedWildList.map(function(item) {
-            return renderRow(item.config, item.nextSpawn, item.index, false);
+            return renderRow(item.config, item.realNextSpawn, item.index, false);
         }).join('');
     }
 
@@ -369,7 +548,7 @@ function render() {
         fixedContainer.innerHTML = fixedConfig.map(function(f) {
             var timeBtns = f.times.map(function(t) {
                 var key = (f.name + "_" + t).replace(/[.#$/[\]]/g, "_");
-                var isDone = remoteFixedData[key] === true;
+                var isDone = (remoteFixedData[key] === true);
                 return '<button class="time-btn ' + (isDone ? 'done' : '') + '" onclick="toggleFixed(\'' + f.name + '\', \'' + t + '\')">' + (isDone ? '✓ ' : '') + t + '</button>';
             }).join(' ');
             return '<div class="boss-row" style="grid-template-columns: 2fr 3fr 1.2fr;\">' +
@@ -381,6 +560,7 @@ function render() {
     }
 }
 
+updateDisplay();
 render();
 setInterval(render, 1000);
 </script>
